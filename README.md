@@ -84,6 +84,25 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `review` | `claude-opus-5` | `medium` |
 | `sonnet` | `claude-sonnet-5[1m]` | `high` |
 
+**This default is a snapshot, not a source of truth.** It reflects the
+author’s own casting decisions as of **2026-09-02** — a private model
+scorecard kept current from a frozen test battery and logged real-use
+observations. Yours override it row by row in `.zshrc` (see
+[Overriding](#overriding)); the table is an opinion to start from, not a
+recommendation to keep.
+
+### Roadmap: a projection, not a snapshot
+
+The shipped table is hand-copied from that scorecard, which means the two
+can drift — the same class of bug this plugin exists to prevent one layer
+down. The planned fix is a small release-time script that *generates* the
+default tables from the scorecard’s machine-readable casting block, stamps
+the output with the source commit and date, and fails a check when any
+projection (this plugin’s defaults, the author’s global Claude Code
+instructions, the scorecard’s own table) disagrees with the source.
+Projections all the way down. Until that ships, the date above is the
+contract.
+
 ## Plan presets
 
 The table above assumes a Claude Max 20x plan. Not everyone is on that

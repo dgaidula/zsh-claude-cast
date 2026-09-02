@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- README: the default table is declared a dated snapshot of the author’s scorecard (2026-09-02); roadmap section for generating the tables from the scorecard at release time.
+
 ## 0.2.0 - 2026-09-02
 
 - **Plan presets.** `CLAUDE_CAST_PRESET` (set before sourcing, default
@@ -19,7 +23,7 @@
   (`model|` or `model||extra`) now means: pass no `--effort` flag at all —
   required for Haiku, which errors on `--effort`. `claude-cast which` and
   `list` reflect this; `lint` no longer misflags an empty effort as
-  "unknown effort" and still warns only when a Haiku row carries a
+  “unknown effort” and still warns only when a Haiku row carries a
   non-empty one. `claude-cast set <role> <model> <effort> [flags...]` now
   accepts `-` (or `""`) for `<effort>` to mean empty.
 
