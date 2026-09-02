@@ -7,16 +7,16 @@ meant.
 
 ## The problem
 
-Claude Code's `/model` picker is convenient for one session and dangerous as
+Claude Code’s `/model` picker is convenient for one session and dangerous as
 a habit: pick a model interactively and the CLI tells you plainly what just
 happened —
 
 > Your pick becomes the default for new sessions.
 
-That's `settings.json` drift. Every `/model` swap you make to try something
+That’s `settings.json` drift. Every `/model` swap you make to try something
 for one task quietly becomes the default for the *next* one, on every
 project, until you notice and swap it back. `claude --model` and `--effort`
-at launch avoid that — they're session-only — but now the model+effort pair
+at launch avoid that — they’re session-only — but now the model+effort pair
 you actually want per task (a cheap model for chores, a strong one for
 verification, a specific pairing for orchestration) lives nowhere except your
 memory and whatever alias you hacked together six months ago and forgot to
@@ -98,7 +98,7 @@ source /path/to/zsh-claude-cast.plugin.zsh
 ```
 
 (zsh requires the array to be declared with `typeset -gA` before you can
-assign a subscript — the plugin declares it for you if you don't, but only
+assign a subscript — the plugin declares it for you if you don’t, but only
 *before* it sees your overrides, so declare-then-assign has to happen first
 in your `.zshrc`.)
 
@@ -131,13 +131,13 @@ Plus two fixed helpers, not tied to any role:
 | `cl` | `command claude "$@"` — bare, whatever `settings.json` says, deliberately not cast |
 | `clr` | `command claude --continue "$@"` |
 
-With the default table and prefix, that's `cldriver`, `clbuild`, `clchore`,
+With the default table and prefix, that’s `cldriver`, `clbuild`, `clchore`,
 `clverify`, `clorchestrate`, `clreview`, `clsonnet` (plus their `clp*`
 headless twins), `cl`, and `clr`.
 
 **Collision safety.** If a name the plugin would generate already resolves
 to a command, alias, function, or builtin — from your own `.zshrc`, another
-plugin, or a prior `zsh-claude-cast` load — it's skipped, and the plugin
+plugin, or a prior `zsh-claude-cast` load — it’s skipped, and the plugin
 prints one summary line at load naming everything it skipped. Set
 `CLAUDE_CAST_FORCE=1` before sourcing to override and take the name anyway.
 
@@ -186,7 +186,7 @@ CLAUDE_CAST_HEADLESS_FLAGS=(-p --output-format json)
 source /path/to/zsh-claude-cast.plugin.zsh
 ```
 
-It's a zsh array, not a string — that's what lets it carry the empty
+It’s a zsh array, not a string — that’s what lets it carry the empty
 `--setting-sources ""` argument cleanly instead of fighting shell quoting to
 smuggle an empty string through a scalar variable.
 
@@ -208,7 +208,7 @@ source /path/to/zsh-claude-cast.plugin.zsh
 ```
 
 **`CLAUDE_CAST_FILE`** — a zsh file sourced before the table is generated,
-for people who'd rather keep the casting table out of `.zshrc` entirely
+for people who’d rather keep the casting table out of `.zshrc` entirely
 (dotfiles-managed, per-machine, whatever):
 
 ```sh
@@ -223,16 +223,16 @@ way described in [Overriding](#overriding).
 ## Completion
 
 If a `_claude` completion function is defined by the time compinit has run
-(from Claude Code's own completions, or another plugin), every generated
+(from Claude Code’s own completions, or another plugin), every generated
 launcher gets `compdef _claude <launcher>` wired up automatically — flags
 like `--model`/`--effort`/`-p` complete on `clbuild` exactly as they would on
-bare `claude`. The plugin doesn't assume load order: it tries once at
+bare `claude`. The plugin doesn’t assume load order: it tries once at
 source time and again on your first `claude-cast` call, so it works whether
 `zsh-claude-cast` loads before or after `compinit` and `_claude`.
 
 ## Pairing with a completion plugin
 
-`zsh-claude-cast` only generates launchers — it deliberately doesn't ship its
+`zsh-claude-cast` only generates launchers — it deliberately doesn’t ship its
 own `claude` completion. Load a completion plugin alongside it (e.g.
 [itsdevcoffee/claude-code-zsh](https://github.com/itsdevcoffee/claude-code-zsh)
 or [wbingli/zsh-claudecode-completion](https://github.com/wbingli/zsh-claudecode-completion))
@@ -248,7 +248,7 @@ re-resolve to whatever Anthropic currently maps them to, silently, across
 releases. A casting table is supposed to be a deliberate, inspectable record
 of what you decided to run for a given role — `claude-cast export`,
 `claude-cast which`, and `git blame` on your dotfiles are only useful if the
-model column actually says what ran. Full IDs pin that; aliases don't.
+model column actually says what ran. Full IDs pin that; aliases don’t.
 
 ## Development
 
@@ -258,7 +258,7 @@ zsh test/run.zsh
 
 Dependency-free — the suite puts a stub `claude` script first on `PATH`
 (prints its argv, one token per line) and drives the plugin against it in
-hermetic `zsh -f` subprocesses. The one exception: `export`'s JSON output is
+hermetic `zsh -f` subprocesses. The one exception: `export`‘s JSON output is
 validated with `node -e`, since parsing JSON correctly is not something to
 hand-roll in shell.
 

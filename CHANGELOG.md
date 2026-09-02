@@ -19,8 +19,8 @@ Initial release.
   `export` (JSON, stable key order), `lint` (alias-model / Haiku+effort /
   unknown-effort warnings, exit 1 on any), `reload`, `help`, `version`.
 - Lazy `compdef _claude <launcher>` wiring, retried on first `claude-cast`
-  call so load order relative to `compinit` doesn't matter.
+  call so load order relative to `compinit` doesn’t matter.
 - Four install paths documented: oh-my-zsh, plain `source`, zinit, antidote.
 - `test/run.zsh`: dependency-free black-box suite (stub `claude` on `PATH`,
-  hermetic `zsh -f` subprocesses per assertion); `export`'s JSON validated
+  hermetic `zsh -f` subprocesses per assertion); `export`‘s JSON validated
   with `node -e`. CI on ubuntu-latest and macos-latest via GitHub Actions.
