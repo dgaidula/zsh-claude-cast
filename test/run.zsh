@@ -227,6 +227,77 @@ expected=$'>--version<'
 assert_eq "cl passes arguments straight through to claude, uncast" "$expected" "$out"
 
 # ---------------------------------------------------------------------------
+# 11. preset selection changes the table
+# ---------------------------------------------------------------------------
+out=$(run_zsh "CLAUDE_CAST_PRESET=pro; source '${PLUGIN}'; cldriver")
+expected=$'>--model<\n>claude-sonnet-5[1m]<\n>--effort<\n>high<'
+assert_eq "CLAUDE_CAST_PRESET=pro changes cldriver's model/effort from the max20 default" "$expected" "$out"
+
+# ---------------------------------------------------------------------------
+# 12. pro has no review launcher
+# ---------------------------------------------------------------------------
+out=$(run_zsh "
+  CLAUDE_CAST_PRESET=pro
+  source '${PLUGIN}'
+  (( \$+functions[clreview] )) && print HASFUNC || print NOFUNC
+")
+assert_contains "the pro preset defines no clreview launcher" "NOFUNC" "$out"
+
+# ---------------------------------------------------------------------------
+# 13. max5's clchore has no --effort flag (empty-effort semantics)
+# ---------------------------------------------------------------------------
+out=$(run_zsh "CLAUDE_CAST_PRESET=max5; source '${PLUGIN}'; clchore")
+expected=$'>--model<\n>claude-haiku-4-5<'
+assert_eq "max5's clchore argv is --model claude-haiku-4-5 with no --effort" "$expected" "$out"
+
+# ---------------------------------------------------------------------------
+# 14. an unknown preset falls back to max20, with a stderr message
+# ---------------------------------------------------------------------------
+out=$(run_zsh "CLAUDE_CAST_PRESET=bogus; source '${PLUGIN}'; clbuild")
+assert_contains "an unknown preset prints a fallback stderr message" "unknown preset 'bogus'" "$out"
+assert_contains "an unknown preset falls back to the max20 build row" $'>--model<\n>claude-fable-5-1[1m]<\n>--effort<\n>medium<' "$out"
+
+# ---------------------------------------------------------------------------
+# 15. a user override on top of a preset wins, and is reported in `list`
+# ---------------------------------------------------------------------------
+out=$(run_zsh "
+  typeset -gA CLAUDE_CAST
+  CLAUDE_CAST[chore]='custom-model|low'
+  CLAUDE_CAST_PRESET=pro
+  source '${PLUGIN}'
+  clchore
+  claude-cast list
+")
+assert_contains "a user row set before load overrides a preset row too" $'>--model<\n>custom-model<\n>--effort<\n>low<' "$out"
+assert_contains "claude-cast list's header names the active preset" "preset: pro" "$out"
+assert_contains "claude-cast list's header names the overridden role" "overridden: chore" "$out"
+
+# ---------------------------------------------------------------------------
+# 16. export includes a preset field
+# ---------------------------------------------------------------------------
+out=$(run_zsh "CLAUDE_CAST_PRESET=max5; source '${PLUGIN}'; claude-cast export")
+assert_contains "export includes a preset field" '"preset": "max5"' "$out"
+
+# ---------------------------------------------------------------------------
+# 17. lint exits 0 on the shipped pro and max5 tables
+# ---------------------------------------------------------------------------
+run_zsh "CLAUDE_CAST_PRESET=pro; source '${PLUGIN}'; claude-cast lint >/dev/null 2>&1" >/dev/null
+rc=$?
+if [[ $rc -eq 0 ]]; then
+  ok "lint exits 0 on the shipped pro table"
+else
+  bad "lint exits 0 on the shipped pro table" "exit 0" "exit $rc"
+fi
+
+run_zsh "CLAUDE_CAST_PRESET=max5; source '${PLUGIN}'; claude-cast lint >/dev/null 2>&1" >/dev/null
+rc=$?
+if [[ $rc -eq 0 ]]; then
+  ok "lint exits 0 on the shipped max5 table"
+else
+  bad "lint exits 0 on the shipped max5 table" "exit 0" "exit $rc"
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 print --

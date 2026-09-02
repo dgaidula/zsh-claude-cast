@@ -71,7 +71,8 @@ antidote bundle dgaidula/zsh-claude-cast
 ## The default table
 
 Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
-[Why full model IDs](#why-full-model-ids):
+[Why full model IDs](#why-full-model-ids). This is the `max20` preset — see
+[Plan presets](#plan-presets) for the other two:
 
 | role | model | effort |
 |---|---|---|
@@ -82,6 +83,37 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `orchestrate` | `claude-opus-4-8[1m]` | `high` |
 | `review` | `claude-opus-5` | `medium` |
 | `sonnet` | `claude-sonnet-5[1m]` | `high` |
+
+## Plan presets
+
+The table above assumes a Claude Max 20x plan. Not everyone is on that
+plan, so `zsh-claude-cast` ships two more, selected by `CLAUDE_CAST_PRESET`
+(set before sourcing, default `max20`):
+
+- **`max20`** — Claude Max 20x. The table above.
+- **`max5`** — Claude Max 5x. Fable is rationed: `driver` and `orchestrate`
+  move to `claude-opus-4-8[1m]`, `build` moves to `claude-sonnet-5[1m]`, and
+  only `verify` still runs Fable.
+- **`pro`** — Claude Pro. Sonnet-led throughout (`driver` and `build` run
+  `claude-sonnet-5[1m]`), `verify`/`orchestrate` stay on Opus, and there’s no
+  `review` row at all — Opus 5 isn’t assumed to be worth spending on Pro.
+
+```sh
+CLAUDE_CAST_PRESET=max5
+source /path/to/zsh-claude-cast.plugin.zsh
+```
+
+An unknown value falls back to `max20`, with a note on stderr.
+
+These three tables are **opinions**, not a spec — a rough plan-ceiling
+matrix of what the maintainer casts on each plan (how much of a model a
+plan’s quota can actually absorb before it stops being worth reaching for).
+Yours may differ. A row you set before sourcing (or via `CLAUDE_CAST_FILE`)
+still overrides the matching preset row exactly as described in
+[Overriding](#overriding) — the preset only fills in what you didn’t set.
+Run `claude-cast presets` to print all three tables at once, and
+`claude-cast list` to see the active preset and anything you overrode from
+it, e.g. `preset: pro (overridden: chore)`.
 
 ## Overriding
 
@@ -113,6 +145,13 @@ Both regenerate the affected launchers immediately — no `reload` needed
 after `set`/`unset` specifically (they call it for you); `reload` is for
 after you edit `CLAUDE_CAST[...]` directly.
 
+`<effort>` can be `-` (or `""`) for a role that shouldn’t get an `--effort`
+flag at all — Haiku errors on `--effort`, so its row needs one of those, e.g.
+`claude-cast set chore claude-haiku-4-5 -`. The same holds for a row set
+directly in `CLAUDE_CAST[...]`: `'claude-haiku-4-5|'` (empty effort field)
+or `'claude-haiku-4-5||--some-flag'` (empty effort, with extra flags) both
+mean no `--effort` flag.
+
 ## Launcher list
 
 For every role in `CLAUDE_CAST`, with prefix `CLAUDE_CAST_PREFIX` (default
@@ -123,6 +162,8 @@ For every role in `CLAUDE_CAST`, with prefix `CLAUDE_CAST_PREFIX` (default
 | `cl<role>` | `clp<role>` | `command claude --model <model> --effort <effort> <extra> "$@"` |
 
 Passthrough args work normally: `clbuild --continue`, `clbuild -p "fix the thing"`.
+A role with an empty effort field drops `--effort <effort>` from that line
+entirely — see [empty-effort semantics](#overriding).
 
 Plus two fixed helpers, not tied to any role:
 
@@ -147,29 +188,38 @@ prints one summary line at load naming everything it skipped. Set
 claude-cast              # list (default)
 claude-cast list
 claude-cast which <launcher-or-role>
-claude-cast set <role> <model> <effort> [flags...]
+claude-cast set <role> <model> <effort|-> [flags...]
 claude-cast unset <role>
 claude-cast export
+claude-cast presets
 claude-cast lint
 claude-cast reload
 claude-cast help
 claude-cast version
 ```
 
-- **`list`** — aligned table: role, launcher, model, effort, extra flags.
+- **`list`** — a header line naming the active preset and any roles you
+  overrode from it (see [Plan presets](#plan-presets)), then an aligned
+  table: role, launcher, model, effort, extra flags.
 - **`which <launcher-or-role>`** — prints the exact command line a launcher
   runs, e.g. `claude-cast which build` or `claude-cast which clbuild` both
   print `command claude --model claude-fable-5-1[1m] --effort medium`.
 - **`set` / `unset`** — see [Overriding](#overriding).
-- **`export`** — the table as JSON on stdout, sorted by role, for scripting
-  or inspection (`claude-cast export | jq .`).
+- **`export`** — the table as JSON on stdout, sorted by role, with a
+  top-level `"preset"` field, for scripting or inspection
+  (`claude-cast export | jq .`).
+- **`presets`** — prints all three shipped preset tables (`max20`, `max5`,
+  `pro`), one after another, regardless of which one is currently active.
 - **`lint`** — warns on: a bare alias model name (`fable`, `opus`, `sonnet`,
   `haiku`, `best`, `default` — see [Why full model
-  IDs](#why-full-model-ids)); any Haiku-model row that sets an effort (the
-  `--effort` flag errors on Haiku); an effort value outside
-  `low`/`medium`/`high`/`xhigh`/`max`. Exits 1 if it found anything to warn
-  about, 0 otherwise — wire it into a dotfiles CI check if you want your
-  casting table linted on every commit.
+  IDs](#why-full-model-ids)); any Haiku-model row that sets a *non-empty*
+  effort (the `--effort` flag errors on Haiku — an empty effort field is
+  exactly how a Haiku row avoids the warning, see
+  [Overriding](#overriding)); an effort value outside
+  `low`/`medium`/`high`/`xhigh`/`max` (an empty effort is exempt from this
+  one too). Exits 1 if it found anything to warn about, 0 otherwise — wire
+  it into a dotfiles CI check if you want your casting table linted on
+  every commit.
 - **`reload`** — regenerates launchers from the current `CLAUDE_CAST`
   contents; use after editing the array directly (`set`/`unset` already call
   this for you).

@@ -4,7 +4,7 @@
 # install instructions and CLAUDE.md for the internals. Dependency-free zsh —
 # no external commands are required to generate or run the launchers.
 
-typeset -g CLAUDE_CAST_VERSION="0.1.0"
+typeset -g CLAUDE_CAST_VERSION="0.2.0"
 
 # ---------------------------------------------------------------------------
 # Config knobs (set these — or CLAUDE_CAST[role]=… entries — BEFORE sourcing
@@ -13,6 +13,20 @@ typeset -g CLAUDE_CAST_VERSION="0.1.0"
 
 : ${CLAUDE_CAST_PREFIX:=cl}
 : ${CLAUDE_CAST_FORCE:=0}
+: ${CLAUDE_CAST_PRESET:=max20}
+
+# Resolves CLAUDE_CAST_PRESET to one of the shipped preset tables (max20,
+# max5, pro), falling back to max20 — with a stderr note — on anything else.
+typeset -g _CLAUDE_CAST_ACTIVE_PRESET
+case "$CLAUDE_CAST_PRESET" in
+  max20|max5|pro)
+    _CLAUDE_CAST_ACTIVE_PRESET="$CLAUDE_CAST_PRESET"
+    ;;
+  *)
+    print -u2 -- "zsh-claude-cast: unknown preset '$CLAUDE_CAST_PRESET' — falling back to max20"
+    _CLAUDE_CAST_ACTIVE_PRESET=max20
+    ;;
+esac
 
 if ! (( ${+CLAUDE_CAST_HEADLESS_FLAGS} )); then
   typeset -ga CLAUDE_CAST_HEADLESS_FLAGS
@@ -27,14 +41,20 @@ fi
 typeset -gA _CLAUDE_CAST_GENERATED       # launcher name -> 1 (ours to redefine/remove)
 typeset -gA _CLAUDE_CAST_LAUNCHER_CMD    # launcher name -> display command line
 typeset -ga _CLAUDE_CAST_SKIPPED         # scratch: names skipped on the last generation pass
+typeset -ga _CLAUDE_CAST_OVERRIDDEN_ROLES # roles the table overrode from the active preset
 typeset -g _CLAUDE_CAST_COMPLETION_DONE=0
 
 # ---------------------------------------------------------------------------
 # Internals
 # ---------------------------------------------------------------------------
 
-# Prints the shipped default table as tab-separated "role\tspec" lines.
-_claude_cast_default_table() {
+# The shipped preset tables, one function each, as tab-separated
+# "role\tspec" lines. Keep in sync with README.md "Plan presets" and
+# CLAUDE.md. Empty effort field (e.g. "claude-haiku-4-5|") means: pass no
+# --effort flag at all — required for Haiku, which errors on --effort.
+
+# Claude Max 20x — today's default table.
+_claude_cast_default_table_max20() {
   cat <<'EOF'
 driver	claude-fable-5-1[1m]|high
 build	claude-fable-5-1[1m]|medium
@@ -46,14 +66,52 @@ sonnet	claude-sonnet-5[1m]|high
 EOF
 }
 
+# Claude Max 5x — Fable rationed, Opus fronts driver/orchestrate.
+_claude_cast_default_table_max5() {
+  cat <<'EOF'
+driver	claude-opus-4-8[1m]|high
+build	claude-sonnet-5[1m]|high
+chore	claude-haiku-4-5|
+verify	claude-fable-5-1[1m]|high
+orchestrate	claude-opus-4-8[1m]|high
+review	claude-opus-5|medium
+sonnet	claude-sonnet-5[1m]|high
+EOF
+}
+
+# Claude Pro — Sonnet-led, no Opus 5 assumed (no review row).
+_claude_cast_default_table_pro() {
+  cat <<'EOF'
+driver	claude-sonnet-5[1m]|high
+build	claude-sonnet-5[1m]|medium
+chore	claude-haiku-4-5|
+verify	claude-opus-4-8[1m]|high
+orchestrate	claude-opus-4-8[1m]|high
+sonnet	claude-sonnet-5[1m]|high
+EOF
+}
+
+# Prints the active preset's table (see _CLAUDE_CAST_ACTIVE_PRESET).
+_claude_cast_default_table() {
+  case "$_CLAUDE_CAST_ACTIVE_PRESET" in
+    max5) _claude_cast_default_table_max5 ;;
+    pro) _claude_cast_default_table_pro ;;
+    *) _claude_cast_default_table_max20 ;;
+  esac
+}
+
 # Fills in any default role not already present in CLAUDE_CAST. A row a user
-# set before sourcing (or via CLAUDE_CAST_FILE) always wins.
+# set before sourcing (or via CLAUDE_CAST_FILE) always wins, and is recorded
+# in _CLAUDE_CAST_OVERRIDDEN_ROLES for `claude-cast list`'s header line.
 _claude_cast_merge_defaults() {
   local role spec
+  _CLAUDE_CAST_OVERRIDDEN_ROLES=()
   while IFS=$'\t' read -r role spec; do
     [[ -z "$role" ]] && continue
     if [[ -z "${CLAUDE_CAST[$role]+x}" ]]; then
       CLAUDE_CAST[$role]="$spec"
+    else
+      _CLAUDE_CAST_OVERRIDDEN_ROLES+=("$role")
     fi
   done < <(_claude_cast_default_table)
 }
@@ -124,7 +182,8 @@ _claude_cast_define_launcher() {
     return 0
   fi
 
-  local -a fixed=(command claude --model "$model" --effort "$effort")
+  local -a fixed=(command claude --model "$model")
+  [[ -n "$effort" ]] && fixed+=(--effort "$effort")
   (( ${#extra} )) && fixed+=("${extra[@]}")
   local -a display=("${fixed[@]}")
   if [[ "$headless" == 1 ]]; then
@@ -236,16 +295,25 @@ _claude_cast_json_escape() {
 _claude_cast_cmd_list() {
   local -a roles=("${(@ok)CLAUDE_CAST}")
   local role launcher w1=4 w2=8 w3=5 w4=6 w5=5
-  local -A extras
+  local -A extras efforts
+
+  local header="preset: ${_CLAUDE_CAST_ACTIVE_PRESET}"
+  if (( ${#_CLAUDE_CAST_OVERRIDDEN_ROLES} )); then
+    header+=" (overridden: ${(j:, :)_CLAUDE_CAST_OVERRIDDEN_ROLES})"
+  fi
+  print -r -- "$header"
 
   for role in "${roles[@]}"; do
     _claude_cast_parse_spec "${CLAUDE_CAST[$role]}"
     launcher="${CLAUDE_CAST_PREFIX}${role}"
     extras[$role]="${(j: :)__cc_extra}"
+    local ed="$__cc_effort"
+    [[ -z "$ed" ]] && ed="-"
+    efforts[$role]="$ed"
     (( ${#role} > w1 )) && w1=${#role}
     (( ${#launcher} > w2 )) && w2=${#launcher}
     (( ${#__cc_model} > w3 )) && w3=${#__cc_model}
-    (( ${#__cc_effort} > w4 )) && w4=${#__cc_effort}
+    (( ${#ed} > w4 )) && w4=${#ed}
     (( ${#extras[$role]} > w5 )) && w5=${#extras[$role]}
   done
 
@@ -256,7 +324,7 @@ _claude_cast_cmd_list() {
     local extra_disp="${extras[$role]}"
     [[ -z "$extra_disp" ]] && extra_disp="-"
     printf "%-${w1}s  %-${w2}s  %-${w3}s  %-${w4}s  %-${w5}s\n" \
-      "$role" "$launcher" "$__cc_model" "$__cc_effort" "$extra_disp"
+      "$role" "$launcher" "$__cc_model" "${efforts[$role]}" "$extra_disp"
   done
 }
 
@@ -279,11 +347,12 @@ _claude_cast_cmd_which() {
 
 _claude_cast_cmd_set() {
   if (( $# < 3 )); then
-    print -u2 -- "usage: claude-cast set <role> <model> <effort> [flags...]"
+    print -u2 -- "usage: claude-cast set <role> <model> <effort|-> [flags...]"
     return 1
   fi
   local role=$1 model=$2 effort=$3
   shift 3
+  [[ "$effort" == "-" ]] && effort=""
   local extra="$*"
   CLAUDE_CAST[$role]="${model}|${effort}|${extra}"
   _claude_cast_reload
@@ -307,6 +376,7 @@ _claude_cast_cmd_export() {
   local -a roles=("${(@ok)CLAUDE_CAST}")
   local role n=${#roles} i=0 comma
   print -r -- "{"
+  printf '  "preset": "%s",\n' "$(_claude_cast_json_escape "$_CLAUDE_CAST_ACTIVE_PRESET")"
   for role in "${roles[@]}"; do
     (( i++ ))
     _claude_cast_parse_spec "${CLAUDE_CAST[$role]}"
@@ -339,7 +409,7 @@ _claude_cast_cmd_lint() {
       print -- "claude-cast lint: [$role] model '$__cc_model' is a Haiku model — the --effort flag errors on Haiku"
       warned=1
     fi
-    if (( ! ${valid_efforts[(Ie)$__cc_effort]} )); then
+    if [[ -n "$__cc_effort" ]] && (( ! ${valid_efforts[(Ie)$__cc_effort]} )); then
       print -- "claude-cast lint: [$role] unknown effort '$__cc_effort' (expected one of: ${(j:, :)valid_efforts})"
       warned=1
     fi
@@ -352,6 +422,42 @@ _claude_cast_cmd_lint() {
   return 0
 }
 
+# Prints all three shipped preset tables, one after another — independent
+# of the currently active CLAUDE_CAST table.
+_claude_cast_cmd_presets() {
+  # Locals declared once, reset by plain assignment each pass — zsh prints
+  # an already-local name's value if `local`/`typeset` re-declares it (no
+  # `=`) a second time in the same scope, which a `local ...` inside this
+  # loop would trigger on the 2nd/3rd preset.
+  local preset first=1 role spec ed w1 w2 w3 i
+  local -a rows_role rows_model rows_effort
+  for preset in max20 max5 pro; do
+    (( first )) || print --
+    first=0
+    print -r -- "== ${preset} =="
+
+    w1=4 w2=5 w3=6
+    rows_role=() rows_model=() rows_effort=()
+    while IFS=$'\t' read -r role spec; do
+      [[ -z "$role" ]] && continue
+      _claude_cast_parse_spec "$spec"
+      ed="$__cc_effort"
+      [[ -z "$ed" ]] && ed="-"
+      rows_role+=("$role")
+      rows_model+=("$__cc_model")
+      rows_effort+=("$ed")
+      (( ${#role} > w1 )) && w1=${#role}
+      (( ${#__cc_model} > w2 )) && w2=${#__cc_model}
+      (( ${#ed} > w3 )) && w3=${#ed}
+    done < <(_claude_cast_default_table_${preset})
+
+    printf "%-${w1}s  %-${w2}s  %-${w3}s\n" ROLE MODEL EFFORT
+    for (( i = 1; i <= ${#rows_role}; i++ )); do
+      printf "%-${w1}s  %-${w2}s  %-${w3}s\n" "${rows_role[$i]}" "${rows_model[$i]}" "${rows_effort[$i]}"
+    done
+  done
+}
+
 _claude_cast_cmd_help() {
   cat <<EOF
 zsh-claude-cast ${CLAUDE_CAST_VERSION} — launchers projected from a CLAUDE_CAST casting table
@@ -359,17 +465,21 @@ zsh-claude-cast ${CLAUDE_CAST_VERSION} — launchers projected from a CLAUDE_CAS
 Usage: claude-cast [subcommand] [args...]
 
 Subcommands:
-  list                          Show the casting table (default)
+  list                          Show the casting table (default), with the
+                                 active preset and any overridden roles
   which <launcher-or-role>      Print the exact command line for a launcher
-  set <role> <model> <effort> [flags...]
+  set <role> <model> <effort|-> [flags...]
                                  Add or replace a role, then regenerate launchers
+                                 ("-" or "" for effort means: no --effort flag)
   unset <role>                  Remove a role and its launchers
   export                        Print the casting table as JSON (stable key order)
+  presets                       Print all three shipped preset tables
   lint                          Warn on alias model names, Haiku+effort, unknown efforts
   reload                        Regenerate launchers after editing CLAUDE_CAST directly
   help                          Show this message
   version                       Print the plugin version
 
+Active preset: ${_CLAUDE_CAST_ACTIVE_PRESET} (CLAUDE_CAST_PRESET, set before sourcing).
 Generated per role <r>: ${CLAUDE_CAST_PREFIX}<r> and ${CLAUDE_CAST_PREFIX}p<r> (headless).
 Fixed helpers: ${CLAUDE_CAST_PREFIX} (bare claude), ${CLAUDE_CAST_PREFIX}r (claude --continue).
 EOF
@@ -385,6 +495,7 @@ claude-cast() {
     set) _claude_cast_cmd_set "$@" ;;
     unset) _claude_cast_cmd_unset "$@" ;;
     export) _claude_cast_cmd_export ;;
+    presets) _claude_cast_cmd_presets ;;
     lint) _claude_cast_cmd_lint ;;
     reload) _claude_cast_reload ;;
     help|-h|--help) _claude_cast_cmd_help ;;
