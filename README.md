@@ -74,6 +74,7 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 [Why full model IDs](#why-full-model-ids). This is the `max20` preset — see
 [Plan presets](#plan-presets) for the other two:
 
+<!-- casting:begin -->
 | role | model | effort |
 |---|---|---|
 | `driver` | `claude-fable-5-1[1m]` | `high` |
@@ -84,6 +85,19 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `review` | `claude-opus-5` | `medium` |
 | `sonnet` | `claude-sonnet-5[1m]` | `high` |
 
+| role | max20 | max5 | pro |
+|---|---|---|---|
+| `driver` | `claude-fable-5-1[1m]` `high` | `claude-opus-4-8[1m]` `high` | `claude-sonnet-5[1m]` `high` |
+| `build` | `claude-fable-5-1[1m]` `medium` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `medium` |
+| `chore` | `claude-fable-5-1[1m]` `low` | `claude-haiku-4-5` | `claude-haiku-4-5` |
+| `verify` | `claude-fable-5-1[1m]` `xhigh` | `claude-fable-5-1[1m]` `high` | `claude-opus-4-8[1m]` `high` |
+| `orchestrate` | `claude-opus-4-8[1m]` `high` | `claude-opus-4-8[1m]` `high` | `claude-opus-4-8[1m]` `high` |
+| `review` | `claude-opus-5` `medium` | `claude-opus-5` `medium` | — |
+| `sonnet` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` |
+
+Generated from the author’s scorecard casting source, commit `513169e`, as of `2026-09-02`.
+<!-- casting:end -->
+
 **This default is a snapshot, not a source of truth.** It reflects the
 author’s own casting decisions as of **2026-09-02** — a private model
 scorecard kept current from a frozen test battery and logged real-use
@@ -91,17 +105,20 @@ observations. Yours override it row by row in `.zshrc` (see
 [Overriding](#overriding)); the table is an opinion to start from, not a
 recommendation to keep.
 
-### Roadmap: a projection, not a snapshot
+### How the defaults are generated
 
-The shipped table is hand-copied from that scorecard, which means the two
-can drift — the same class of bug this plugin exists to prevent one layer
-down. The planned fix is a small release-time script that *generates* the
-default tables from the scorecard’s machine-readable casting block, stamps
-the output with the source commit and date, and fails a check when any
-projection (this plugin’s defaults, the author’s global Claude Code
-instructions, the scorecard’s own table) disagrees with the source.
-Projections all the way down. Until that ships, the date above is the
-contract.
+The tables between the `<!-- casting:begin -->` / `<!-- casting:end -->`
+markers above aren’t hand-copied from the scorecard — they’re *generated*
+from it. `claude-ops/casting.json` (the author’s private scorecard repo) is
+the one machine-readable casting source; `claude-ops/routines/project-casting.mjs
+--write` renders it into this README, into the matching markers in
+`zsh-claude-cast.plugin.zsh` itself, and into the author’s global Claude
+Code instructions, stamping each block with the source commit and date.
+`--check` re-renders every block in memory and fails if any of them
+disagrees with `casting.json` — it runs in the author’s release routine
+before a version is tagged, so a hand-edited table inside the markers (or a
+scorecard change nobody projected) can’t ship unnoticed. Projections all the
+way down.
 
 ## Plan presets
 

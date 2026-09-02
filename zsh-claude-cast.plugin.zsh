@@ -4,7 +4,7 @@
 # install instructions and CLAUDE.md for the internals. Dependency-free zsh —
 # no external commands are required to generate or run the launchers.
 
-typeset -g CLAUDE_CAST_VERSION="0.2.0"
+typeset -g CLAUDE_CAST_VERSION="0.3.0"
 
 # ---------------------------------------------------------------------------
 # Config knobs (set these — or CLAUDE_CAST[role]=… entries — BEFORE sourcing
@@ -53,6 +53,7 @@ typeset -g _CLAUDE_CAST_COMPLETION_DONE=0
 # CLAUDE.md. Empty effort field (e.g. "claude-haiku-4-5|") means: pass no
 # --effort flag at all — required for Haiku, which errors on --effort.
 
+# casting:begin (generated from claude-ops casting.json @ 513169e 2026-09-02 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
@@ -90,6 +91,7 @@ orchestrate	claude-opus-4-8[1m]|high
 sonnet	claude-sonnet-5[1m]|high
 EOF
 }
+# casting:end
 
 # Prints the active preset's table (see _CLAUDE_CAST_ACTIVE_PRESET).
 _claude_cast_default_table() {

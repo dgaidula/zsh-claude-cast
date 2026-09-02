@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- README: the default table is declared a dated snapshot of the author’s scorecard (2026-09-02); roadmap section for generating the tables from the scorecard at release time.
+## 0.3.0 - 2026-09-02
+
+- **Defaults are now generated from the author’s casting source, not hand-copied.** The `max20`/`max5`/`pro` tables in this file’s plugin source and in the README now live between `casting:begin`/`casting:end` markers, rendered from `claude-ops/casting.json` by `claude-ops/routines/project-casting.mjs --write` and stamped with the source commit and date; `--check` re-renders every block and fails on drift, and runs in the author’s release routine before a version is tagged. Behaviour unchanged — same three tables, same launchers.
 
 ## 0.2.0 - 2026-09-02
 

@@ -298,6 +298,27 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 18. casting markers are present and well-formed (marker-integrity)
+# ---------------------------------------------------------------------------
+plugin_src=$(cat "${PLUGIN}")
+if [[ "$plugin_src" == *'# casting:begin (generated from claude-ops casting.json @'*'— do not edit by hand)'* ]]; then
+  ok "plugin source carries a casting:begin marker with a provenance stamp"
+else
+  bad "plugin source carries a casting:begin marker with a provenance stamp" "marker present" "missing"
+fi
+assert_contains "plugin source carries a casting:end marker" $'# casting:end' "$plugin_src"
+
+# ---------------------------------------------------------------------------
+# 19. the plugin still loads and behaves correctly with the generated block in
+#     place — a regression check for the casting:begin/end marker refactor,
+#     not a hand-simplified stand-in.
+# ---------------------------------------------------------------------------
+out=$(run_zsh "source '${PLUGIN}'; claude-cast presets")
+assert_contains "claude-cast presets still prints the generated max20 table" "== max20 ==" "$out"
+assert_contains "claude-cast presets still prints the generated max5 table" "== max5 ==" "$out"
+assert_contains "claude-cast presets still prints the generated pro table" "== pro ==" "$out"
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 print --
