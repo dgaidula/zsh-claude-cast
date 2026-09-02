@@ -95,7 +95,7 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `review` | `claude-opus-5` `medium` | `claude-opus-5` `medium` | — |
 | `sonnet` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` |
 
-Generated from the author’s scorecard casting source, commit `513169e`, as of `2026-09-02`.
+Generated from the author’s scorecard casting source, commit `9035fd9`, as of `2026-09-02`.
 <!-- casting:end -->
 
 **This default is a snapshot, not a source of truth.** It reflects the
