@@ -25,8 +25,8 @@ update after the last model release.
 ## The casting-table idea
 
 Instead of aliases like `alias cco='claude --model whatever-you-typed-in-2025'`,
-define **roles** — `driver`, `build`, `chore`, `verify`, `orchestrate`,
-`review` — each mapped to a `model|effort|extra-flags` triple in one zsh
+define **roles** — `driver`, `fable`, `build`, `chore`, `verify`, `taste`,
+`orchestrate`, `review` — each mapped to a `model|effort|extra-flags` triple in one zsh
 associative array, `CLAUDE_CAST`. The plugin *projects* that table into real
 shell functions at load time: `clbuild`, `clverify`, and so on. Change the
 table, `claude-cast reload`, and every launcher it produced is regenerated —
@@ -75,31 +75,35 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 [Plan presets](#plan-presets) for the other two:
 
 <!-- casting:begin -->
-| role | model | effort |
-|---|---|---|
-| `driver` | `claude-fable-5-1[1m]` | `high` |
-| `build` | `claude-fable-5-1[1m]` | `medium` |
-| `chore` | `claude-fable-5-1[1m]` | `low` |
-| `verify` | `claude-fable-5-1[1m]` | `xhigh` |
-| `orchestrate` | `claude-opus-4-8[1m]` | `high` |
-| `review` | `claude-opus-5` | `medium` |
-| `sonnet` | `claude-sonnet-5[1m]` | `high` |
+| role | model | effort | extra |
+|---|---|---|---|
+| `driver` | `claude-opus-4-8[1m]` | `high` | — |
+| `fable` | `claude-opus-4-8[1m]` | `high` | `--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
+| `build` | `claude-opus-4-8[1m]` | `xhigh` | — |
+| `chore` | `claude-sonnet-5[1m]` | `low` | — |
+| `verify` | `claude-fable-5-1[1m]` | `xhigh` | — |
+| `taste` | `claude-fable-5-1[1m]` | `high` | — |
+| `orchestrate` | `claude-opus-4-8[1m]` | `high` | `--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
+| `review` | `claude-opus-5` | `medium` | — |
+| `sonnet` | `claude-sonnet-5[1m]` | `high` | — |
 
 | role | max20 | max5 | pro |
 |---|---|---|---|
-| `driver` | `claude-fable-5-1[1m]` `high` | `claude-opus-4-8[1m]` `high` | `claude-sonnet-5[1m]` `high` |
-| `build` | `claude-fable-5-1[1m]` `medium` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `medium` |
-| `chore` | `claude-fable-5-1[1m]` `low` | `claude-haiku-4-5` | `claude-haiku-4-5` |
+| `driver` | `claude-opus-4-8[1m]` `high` | `claude-opus-4-8[1m]` `high` | `claude-sonnet-5[1m]` `high` |
+| `fable` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
+| `build` | `claude-opus-4-8[1m]` `xhigh` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `medium` |
+| `chore` | `claude-sonnet-5[1m]` `low` | `claude-haiku-4-5` | `claude-haiku-4-5` |
 | `verify` | `claude-fable-5-1[1m]` `xhigh` | `claude-fable-5-1[1m]` `high` | `claude-opus-4-8[1m]` `high` |
-| `orchestrate` | `claude-opus-4-8[1m]` `high` | `claude-opus-4-8[1m]` `high` | `claude-opus-4-8[1m]` `high` |
+| `taste` | `claude-fable-5-1[1m]` `high` | `claude-fable-5-1[1m]` `high` | `claude-opus-4-8[1m]` `high` |
+| `orchestrate` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `review` | `claude-opus-5` `medium` | `claude-opus-5` `medium` | — |
 | `sonnet` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` |
 
-Generated from the author’s scorecard casting source, commit `4b7a516`, as of `2026-09-02`.
+Generated from the author’s scorecard casting source, commit `7a08a26`, as of `2026-09-03`.
 <!-- casting:end -->
 
 **This default is a snapshot, not a source of truth.** It reflects the
-author’s own casting decisions as of **2026-09-02** — a private model
+author’s own casting decisions as of **2026-09-03** — a private model
 scorecard kept current from a frozen test battery and logged real-use
 observations. Yours override it row by row in `.zshrc` (see
 [Overriding](#overriding)); the table is an opinion to start from, not a
@@ -126,13 +130,21 @@ The table above assumes a Claude Max 20x plan. Not everyone is on that
 plan, so `zsh-claude-cast` ships two more, selected by `CLAUDE_CAST_PRESET`
 (set before sourcing, default `max20`):
 
-- **`max20`** — Claude Max 20x. The table above.
-- **`max5`** — Claude Max 5x. Fable is rationed: `driver` and `orchestrate`
-  move to `claude-opus-4-8[1m]`, `build` moves to `claude-sonnet-5[1m]`, and
-  only `verify` still runs Fable.
+- **`max20`** — Claude Max 20x. The table above: Opus 4.8 carries `driver`
+  and `build` (Fable draws from a 50% weekly bucket on this plan, not
+  unlimited quota), and Fable 5.1 is reserved for `verify` and `taste` —
+  the two roles the maintainer’s battery found no Opus-plus-skill crossover
+  for. `fable` and `orchestrate` get Fable-mode rigor a different way: Opus
+  4.8 with the fable-mode skill appended (see [Why `fable` and
+  `orchestrate` run Opus, not
+  Fable](#why-fable-and-orchestrate-run-opus-not-fable)).
+- **`max5`** — Claude Max 5x. Same shape as `max20`, one tier down on
+  `chore`: it drops to `claude-haiku-4-5` (no effort) instead of a cheap
+  Sonnet pass.
 - **`pro`** — Claude Pro. Sonnet-led throughout (`driver` and `build` run
-  `claude-sonnet-5[1m]`), `verify`/`orchestrate` stay on Opus, and there’s no
-  `review` row at all — Opus 5 isn’t assumed to be worth spending on Pro.
+  `claude-sonnet-5[1m]`), `verify`/`taste`/`orchestrate` fall back to Opus
+  instead of Fable, and there’s no `review` row at all — Opus 5 isn’t
+  assumed to be worth spending on Pro.
 
 ```sh
 CLAUDE_CAST_PRESET=max5
@@ -150,6 +162,34 @@ still overrides the matching preset row exactly as described in
 Run `claude-cast presets` to print all three tables at once, and
 `claude-cast list` to see the active preset and anything you overrode from
 it, e.g. `preset: pro (overridden: chore)`.
+
+## Why `fable` and `orchestrate` run Opus, not Fable
+
+The shipped `fable` and `orchestrate` rows don’t run the Fable model at
+all — they run `claude-opus-4-8[1m]` with a third `|`-separated field, an
+`extra` flags string: `--append-system-prompt-file
+~/.claude/skills/fable-mode/SKILL.md`. That’s the maintainer’s own
+Fable-mode skill, appended at launch to give Opus 4.8 Fable’s planning and
+verification habits without spending the Fable weekly bucket on roles the
+2026-09-01/02 battery found no measurable difference on. `verify` and
+`taste` don’t get this treatment — those are the two roles where the
+battery found Fable 5.1 still wins outright, so they run the real model.
+
+`extra` is free text, split on shell-word boundaries at launch — point it
+at your own system-prompt file (or any other flags), or blank it to run a
+plain row with no third field:
+
+```sh
+CLAUDE_CAST[fable]='claude-opus-4-8[1m]|high|--append-system-prompt-file ~/my-skill/SKILL.md'
+CLAUDE_CAST[orchestrate]='claude-opus-4-8[1m]|high'   # no extra field: bare Opus
+```
+
+A leading `~` in any extra-flag word expands to `$HOME` at launch time.
+The row itself is a plain string (a heredoc line, or a value you typed into
+`CLAUDE_CAST[...]`), so `~` doesn’t expand on its own the way it would if
+you’d typed the path directly on a command line — the plugin expands it for
+you when the launcher actually runs. `claude-cast which` prints the
+already-expanded form, so what you see is what runs.
 
 ## Overriding
 
@@ -208,9 +248,9 @@ Plus two fixed helpers, not tied to any role:
 | `cl` | `command claude "$@"` — bare, whatever `settings.json` says, deliberately not cast |
 | `clr` | `command claude --continue "$@"` |
 
-With the default table and prefix, that’s `cldriver`, `clbuild`, `clchore`,
-`clverify`, `clorchestrate`, `clreview`, `clsonnet` (plus their `clp*`
-headless twins), `cl`, and `clr`.
+With the default table and prefix, that’s `cldriver`, `clfable`, `clbuild`,
+`clchore`, `clverify`, `cltaste`, `clorchestrate`, `clreview`, `clsonnet`
+(plus their `clp*` headless twins), `cl`, and `clr`.
 
 **Collision safety.** If a name the plugin would generate already resolves
 to a command, alias, function, or builtin — from your own `.zshrc`, another
@@ -239,7 +279,9 @@ claude-cast version
   table: role, launcher, model, effort, extra flags.
 - **`which <launcher-or-role>`** — prints the exact command line a launcher
   runs, e.g. `claude-cast which build` or `claude-cast which clbuild` both
-  print `command claude --model claude-fable-5-1[1m] --effort medium`.
+  print `command claude --model claude-opus-4-8[1m] --effort xhigh`; a role
+  with an `extra` field (e.g. `claude-cast which fable`) shows it appended,
+  with any leading `~` already expanded to `$HOME`.
 - **`set` / `unset`** — see [Overriding](#overriding).
 - **`export`** — the table as JSON on stdout, sorted by role, with a
   top-level `"preset"` field, for scripting or inspection

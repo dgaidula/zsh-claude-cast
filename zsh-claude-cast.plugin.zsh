@@ -4,7 +4,7 @@
 # install instructions and CLAUDE.md for the internals. Dependency-free zsh —
 # no external commands are required to generate or run the launchers.
 
-typeset -g CLAUDE_CAST_VERSION="0.3.0"
+typeset -g CLAUDE_CAST_VERSION="0.4.0"
 
 # ---------------------------------------------------------------------------
 # Config knobs (set these — or CLAUDE_CAST[role]=… entries — BEFORE sourcing
@@ -53,15 +53,17 @@ typeset -g _CLAUDE_CAST_COMPLETION_DONE=0
 # CLAUDE.md. Empty effort field (e.g. "claude-haiku-4-5|") means: pass no
 # --effort flag at all — required for Haiku, which errors on --effort.
 
-# casting:begin (generated from claude-ops casting.json @ 4b7a516 2026-09-02 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ 7a08a26 2026-09-03 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
-driver	claude-fable-5-1[1m]|high
-build	claude-fable-5-1[1m]|medium
-chore	claude-fable-5-1[1m]|low
+driver	claude-opus-4-8[1m]|high
+fable	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+build	claude-opus-4-8[1m]|xhigh
+chore	claude-sonnet-5[1m]|low
 verify	claude-fable-5-1[1m]|xhigh
-orchestrate	claude-opus-4-8[1m]|high
+taste	claude-fable-5-1[1m]|high
+orchestrate	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 review	claude-opus-5|medium
 sonnet	claude-sonnet-5[1m]|high
 EOF
@@ -71,10 +73,12 @@ EOF
 _claude_cast_default_table_max5() {
   cat <<'EOF'
 driver	claude-opus-4-8[1m]|high
+fable	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-sonnet-5[1m]|high
 chore	claude-haiku-4-5|
 verify	claude-fable-5-1[1m]|high
-orchestrate	claude-opus-4-8[1m]|high
+taste	claude-fable-5-1[1m]|high
+orchestrate	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 review	claude-opus-5|medium
 sonnet	claude-sonnet-5[1m]|high
 EOF
@@ -84,10 +88,12 @@ EOF
 _claude_cast_default_table_pro() {
   cat <<'EOF'
 driver	claude-sonnet-5[1m]|high
+fable	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-sonnet-5[1m]|medium
 chore	claude-haiku-4-5|
 verify	claude-opus-4-8[1m]|high
-orchestrate	claude-opus-4-8[1m]|high
+taste	claude-opus-4-8[1m]|high
+orchestrate	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 sonnet	claude-sonnet-5[1m]|high
 EOF
 }
@@ -178,6 +184,13 @@ _claude_cast_define_launcher() {
   local name=$1 headless=$2 model=$3 effort=$4
   shift 4
   local -a extra=("$@")
+
+  # The row string is data, so a leading "~" in an extra-flag word doesn't
+  # expand on its own — expand it here, at launch time, to $HOME.
+  local i
+  for (( i = 1; i <= ${#extra}; i++ )); do
+    extra[i]="${extra[i]/#\~/$HOME}"
+  done
 
   if _claude_cast_should_skip "$name"; then
     _CLAUDE_CAST_SKIPPED+=("$name")

@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+## 0.4.0 - 2026-09-03
+
+- **`extra` flags are now a first-class part of the casting source.** A
+  `casting.json` row can carry an `extra` field (a flags string); the
+  generator renders it as the third `|`-separated field of a row (e.g.
+  `claude-opus-4-8[1m]|high|--append-system-prompt-file
+  ~/.claude/skills/fable-mode/SKILL.md`), in a fourth README column, and
+  appended to the CLAUDE.md casting list. A leading `~` in any extra-flag
+  word now expands to `$HOME` at launch time, in
+  `_claude_cast_define_launcher` — the row string is data, so `~` doesn’t
+  expand on its own; `claude-cast which` prints the expanded form.
+- **Two new roles: `fable` and `taste`.** `fable` — Fable-mode rigor on a
+  non-Fable model, via the fable-mode skill appended at launch. `taste` —
+  design, writing, and aesthetic direction, the one role the 2026-09-01/02
+  battery found no Opus-plus-skill crossover for.
+- **`max20` rebalanced.** `driver` and `build` now run Opus 4.8 (Fable
+  draws from a 50% weekly bucket on Max 20x, not unlimited quota); `fable`
+  and `orchestrate` run Opus 4.8 with the fable-mode skill appended rather
+  than the Fable model itself; `verify` and `taste` still run Fable 5.1,
+  where the battery found it wins outright. `max5` and `pro` keep their
+  prior shape, plus the two new rows.
+- Role order in the generated tables (and this repo’s docs) is now
+  `driver`, `fable`, `build`, `chore`, `verify`, `taste`, `orchestrate`,
+  `review`, `sonnet` — `claude-cast list`/`export` still sort roles
+  alphabetically (unchanged; not worth the added complexity of tracking a
+  fixed order alongside arbitrary user-added roles).
+
 ## 0.3.0 - 2026-09-02
 
 - **Defaults are now generated from the author’s casting source, not hand-copied.** The `max20`/`max5`/`pro` tables in this file’s plugin source and in the README now live between `casting:begin`/`casting:end` markers, rendered from `claude-ops/casting.json` by `claude-ops/routines/project-casting.mjs --write` and stamped with the source commit and date; `--check` re-renders every block and fails on drift, and runs in the author’s release routine before a version is tagged. Behaviour unchanged — same three tables, same launchers.

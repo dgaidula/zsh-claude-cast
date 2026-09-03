@@ -85,7 +85,7 @@ print --
 # ---------------------------------------------------------------------------
 out=$(run_zsh "
   source '${PLUGIN}'
-  for r in driver build chore verify orchestrate review sonnet; do
+  for r in driver fable build chore verify taste orchestrate review sonnet; do
     (( \$+functions[cl\$r] )) || print MISSING:\$r
     (( \$+functions[clp\$r] )) || print MISSING:clp\$r
   done
@@ -98,17 +98,17 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 2. clbuild foo --bar -> exactly --model <model> --effort medium foo --bar
+# 2. clbuild foo --bar -> exactly --model <model> --effort xhigh foo --bar
 # ---------------------------------------------------------------------------
 out=$(run_zsh "source '${PLUGIN}'; clbuild foo --bar")
-expected=$'>--model<\n>claude-fable-5-1[1m]<\n>--effort<\n>medium<\n>foo<\n>--bar<'
-assert_eq "clbuild foo --bar produces exactly --model <model> --effort medium foo --bar" "$expected" "$out"
+expected=$'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>xhigh<\n>foo<\n>--bar<'
+assert_eq "clbuild foo --bar produces exactly --model <model> --effort xhigh foo --bar" "$expected" "$out"
 
 # ---------------------------------------------------------------------------
 # 3. clpbuild adds the headless flags
 # ---------------------------------------------------------------------------
 out=$(run_zsh "source '${PLUGIN}'; clpbuild")
-expected=$'>--model<\n>claude-fable-5-1[1m]<\n>--effort<\n>medium<\n>-p<\n>--output-format<\n>json<\n>--setting-sources<\n><'
+expected=$'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>xhigh<\n>-p<\n>--output-format<\n>json<\n>--setting-sources<\n><'
 assert_eq "clpbuild adds the default headless flags" "$expected" "$out"
 
 # ---------------------------------------------------------------------------
@@ -143,7 +143,7 @@ assert_contains "claude-cast unset removes the launcher" "GONE" "$out"
 # ---------------------------------------------------------------------------
 out_role=$(run_zsh "source '${PLUGIN}'; claude-cast which build")
 out_launcher=$(run_zsh "source '${PLUGIN}'; claude-cast which clbuild")
-expected="command claude --model claude-fable-5-1[1m] --effort medium"
+expected="command claude --model claude-opus-4-8[1m] --effort xhigh"
 assert_eq "which build" "$expected" "$out_role"
 assert_eq "which clbuild" "$expected" "$out_launcher"
 
@@ -156,7 +156,7 @@ if command -v node >/dev/null 2>&1; then
   if node -e '
     const fs = require("fs");
     const data = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-    const roles = ["driver","build","chore","verify","orchestrate","review","sonnet"];
+    const roles = ["driver","fable","build","chore","verify","taste","orchestrate","review","sonnet"];
     for (const r of roles) {
       if (!data[r]) { console.error("missing role " + r); process.exit(1); }
       if (typeof data[r].model !== "string" || !data[r].model) { console.error("bad model for " + r); process.exit(1); }
@@ -216,7 +216,7 @@ out=$(run_zsh "
   source '${PLUGIN}'
   clbuild
 ")
-expected=$'>--model<\n>claude-fable-5-1[1m]<\n>--effort<\n>medium<'
+expected=$'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>xhigh<'
 assert_eq "CLAUDE_CAST_FORCE=1 overrides a pre-existing clbuild function" "$expected" "$out"
 
 # ---------------------------------------------------------------------------
@@ -255,7 +255,7 @@ assert_eq "max5's clchore argv is --model claude-haiku-4-5 with no --effort" "$e
 # ---------------------------------------------------------------------------
 out=$(run_zsh "CLAUDE_CAST_PRESET=bogus; source '${PLUGIN}'; clbuild")
 assert_contains "an unknown preset prints a fallback stderr message" "unknown preset 'bogus'" "$out"
-assert_contains "an unknown preset falls back to the max20 build row" $'>--model<\n>claude-fable-5-1[1m]<\n>--effort<\n>medium<' "$out"
+assert_contains "an unknown preset falls back to the max20 build row" $'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>xhigh<' "$out"
 
 # ---------------------------------------------------------------------------
 # 15. a user override on top of a preset wins, and is reported in `list`
@@ -317,6 +317,42 @@ out=$(run_zsh "source '${PLUGIN}'; claude-cast presets")
 assert_contains "claude-cast presets still prints the generated max20 table" "== max20 ==" "$out"
 assert_contains "claude-cast presets still prints the generated max5 table" "== max5 ==" "$out"
 assert_contains "claude-cast presets still prints the generated pro table" "== pro ==" "$out"
+
+# ---------------------------------------------------------------------------
+# 20. a row's extra flags land in argv after --model/--effort
+# ---------------------------------------------------------------------------
+out=$(run_zsh "
+  typeset -gA CLAUDE_CAST
+  CLAUDE_CAST[widget]='custom-model|high|--foo bar --baz'
+  source '${PLUGIN}'
+  clwidget
+")
+expected=$'>--model<\n>custom-model<\n>--effort<\n>high<\n>--foo<\n>bar<\n>--baz<'
+assert_eq "a row's extra flags appear in argv after --model/--effort" "$expected" "$out"
+
+# ---------------------------------------------------------------------------
+# 21. a leading ~ in an extra-flag word expands to \$HOME at launch time, and
+#     `claude-cast which` prints the already-expanded form
+# ---------------------------------------------------------------------------
+out=$(run_zsh "
+  export HOME=/home/tester
+  typeset -gA CLAUDE_CAST
+  CLAUDE_CAST[widget]='custom-model|high|--append-system-prompt-file ~/skills/foo/SKILL.md'
+  source '${PLUGIN}'
+  clwidget
+  claude-cast which widget
+")
+assert_contains "a leading ~ in an extra flag word expands to \$HOME in argv" $'>--append-system-prompt-file<\n>/home/tester/skills/foo/SKILL.md<' "$out"
+assert_contains "claude-cast which prints the tilde-expanded form" "/home/tester/skills/foo/SKILL.md" "$out"
+assert_not_contains "claude-cast which does not print the unexpanded ~" "~/skills/foo/SKILL.md" "$out"
+
+# ---------------------------------------------------------------------------
+# 22. the shipped max20 fable/orchestrate rows carry a real extra flag whose
+#     ~ expands against the actual $HOME of whoever sources the plugin
+# ---------------------------------------------------------------------------
+out=$(run_zsh "source '${PLUGIN}'; claude-cast which fable")
+assert_contains "the shipped fable row's ~ expands to the real \$HOME" "${HOME}/.claude/skills/fable-mode/SKILL.md" "$out"
+assert_not_contains "the shipped fable row's which output carries no literal ~" "~/.claude/skills/fable-mode/SKILL.md" "$out"
 
 # ---------------------------------------------------------------------------
 # Summary
