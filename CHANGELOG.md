@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## 0.5.0 - 2026-09-21
+
+- **New `fix` role.** A well-scoped fix pass over already-verified findings
+  (agent `fixer`), added to all three shipped presets right after `build`;
+  generates `clfix`/`clpfix` like any other role.
+- **`claude-cast argv <role>`.** Prints a role’s resolved launch arguments,
+  one token per line, with no `claude` word — `--model <id>`, then `--effort
+  <level>` when non-empty, then each `extra` token with a leading `~`
+  expanded. Shares the launchers’ own resolution path, so the two can’t
+  disagree. Unknown role → stderr message, return 1.
+- **Agent-definition awareness.** A new `CLAUDE_CAST_AGENTS` associative
+  array (agent-definition name → role, default filled from the shipped map,
+  overridable like `CLAUDE_CAST`) and `CLAUDE_CAST_AGENTS_DIR` (default
+  `$HOME/.claude/agents`). The plugin can check each agent file’s
+  `model:`/`effort:` frontmatter against its role’s table entry — pure zsh
+  file reads, no subprocess. `claude-cast export` now carries a top-level
+  `"agents"` map.
+- **`claude-cast doctor [--fetch] [--brief]`.** Runs `lint`, the
+  agent-definition check, and (when `chezmoi` is on `PATH`) a source-behind
+  count; exit 0 clean, 1 on drift. `--brief` is one line.
+- **Launch-time agent check.** Every launcher runs the agent check (existing
+  files only, mismatch only) before `command claude`, governed by
+  `CLAUDE_CAST_LAUNCH_CHECK`: `ask` (default — prompt on a TTY, refuse with
+  code 3 when there’s no TTY to confirm), `warn` (print, continue), or `off`.
+  No mismatch means zero output and no behaviour change.
+
 ## 0.4.0 - 2026-09-03
 
 - **`extra` flags are now a first-class part of the casting source.** A

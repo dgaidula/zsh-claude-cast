@@ -25,8 +25,8 @@ update after the last model release.
 ## The casting-table idea
 
 Instead of aliases like `alias cco='claude --model whatever-you-typed-in-2025'`,
-define **roles** — `driver`, `fable`, `build`, `chore`, `verify`, `taste`,
-`orchestrate`, `review` — each mapped to a `model|effort|extra-flags` triple in one zsh
+define **roles** — `driver`, `fable`, `build`, `fix`, `chore`, `verify`,
+`taste`, `orchestrate`, `review` — each mapped to a `model|effort|extra-flags` triple in one zsh
 associative array, `CLAUDE_CAST`. The plugin *projects* that table into real
 shell functions at load time: `clbuild`, `clverify`, and so on. Change the
 table, `claude-cast reload`, and every launcher it produced is regenerated —
@@ -80,6 +80,7 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `driver` | `claude-opus-4-8[1m]` | `high` | — |
 | `fable` | `claude-opus-4-8[1m]` | `high` | `--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `build` | `claude-opus-4-8[1m]` | `xhigh` | — |
+| `fix` | `claude-opus-4-8[1m]` | `high` | — |
 | `chore` | `claude-sonnet-5[1m]` | `low` | — |
 | `verify` | `claude-fable-5-1[1m]` | `xhigh` | — |
 | `taste` | `claude-fable-5-1[1m]` | `high` | — |
@@ -92,6 +93,7 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `driver` | `claude-opus-4-8[1m]` `high` | `claude-opus-4-8[1m]` `high` | `claude-sonnet-5[1m]` `high` |
 | `fable` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `build` | `claude-opus-4-8[1m]` `xhigh` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `medium` |
+| `fix` | `claude-opus-4-8[1m]` `high` | `claude-opus-4-8[1m]` `high` | `claude-opus-4-8[1m]` `high` |
 | `chore` | `claude-sonnet-5[1m]` `low` | `claude-haiku-4-5` | `claude-haiku-4-5` |
 | `verify` | `claude-fable-5-1[1m]` `xhigh` | `claude-fable-5-1[1m]` `high` | `claude-opus-4-8[1m]` `high` |
 | `taste` | `claude-fable-5-1[1m]` `high` | `claude-fable-5-1[1m]` `high` | `claude-opus-4-8[1m]` `high` |
@@ -99,7 +101,7 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `review` | `claude-opus-5` `medium` | `claude-opus-5` `medium` | — |
 | `sonnet` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` |
 
-Generated from the author’s scorecard casting source, commit `7a08a26`, as of `2026-09-03`.
+Generated from the author’s scorecard casting source, commit `174d594`, as of `2026-09-21`.
 <!-- casting:end -->
 
 **This default is a snapshot, not a source of truth.** It reflects the
@@ -249,8 +251,8 @@ Plus two fixed helpers, not tied to any role:
 | `clr` | `command claude --continue "$@"` |
 
 With the default table and prefix, that’s `cldriver`, `clfable`, `clbuild`,
-`clchore`, `clverify`, `cltaste`, `clorchestrate`, `clreview`, `clsonnet`
-(plus their `clp*` headless twins), `cl`, and `clr`.
+`clfix`, `clchore`, `clverify`, `cltaste`, `clorchestrate`, `clreview`,
+`clsonnet` (plus their `clp*` headless twins), `cl`, and `clr`.
 
 **Collision safety.** If a name the plugin would generate already resolves
 to a command, alias, function, or builtin — from your own `.zshrc`, another
@@ -266,9 +268,11 @@ claude-cast list
 claude-cast which <launcher-or-role>
 claude-cast set <role> <model> <effort|-> [flags...]
 claude-cast unset <role>
+claude-cast argv <role>
 claude-cast export
 claude-cast presets
 claude-cast lint
+claude-cast doctor [--fetch] [--brief]
 claude-cast reload
 claude-cast help
 claude-cast version
@@ -283,9 +287,17 @@ claude-cast version
   with an `extra` field (e.g. `claude-cast which fable`) shows it appended,
   with any leading `~` already expanded to `$HOME`.
 - **`set` / `unset`** — see [Overriding](#overriding).
+- **`argv <role>`** — prints the launch arguments a role resolves to, one
+  token per line, with no `claude` word: `--model <id>`, then `--effort
+  <level>` when the effort is non-empty, then each `extra` token with any
+  leading `~` expanded to `$HOME` — exactly what the launcher runs. Meant for
+  a script that wants to build its own `claude` invocation from the table
+  (`args=(); while IFS= read -r a; do args+=("$a"); done < <(claude-cast argv build); command claude "${args[@]}"`).
+  An unknown role prints a message on stderr and returns 1.
 - **`export`** — the table as JSON on stdout, sorted by role, with a
-  top-level `"preset"` field, for scripting or inspection
-  (`claude-cast export | jq .`).
+  top-level `"preset"` field and a top-level `"agents"` map
+  (agent-definition name → role, `{}` when empty), for scripting or
+  inspection (`claude-cast export | jq .`).
 - **`presets`** — prints all three shipped preset tables (`max20`, `max5`,
   `pro`), one after another, regardless of which one is currently active.
 - **`lint`** — warns on: a bare alias model name (`fable`, `opus`, `sonnet`,
@@ -298,6 +310,14 @@ claude-cast version
   one too). Exits 1 if it found anything to warn about, 0 otherwise — wire
   it into a dotfiles CI check if you want your casting table linted on
   every commit.
+- **`doctor [--fetch] [--brief]`** — a one-shot health check of this
+  machine: runs `lint`, checks each mapped agent definition against the
+  table (see [Agent definitions and the launch
+  check](#agent-definitions-and-the-launch-check)), and, if `chezmoi` is on
+  `PATH`, reports how many commits its source is behind upstream (using the
+  refs already fetched — `--fetch` refreshes them first, bounded so a dead
+  network can’t hang it). Exit 0 clean, 1 on any drift. `--brief` collapses
+  it to a single line, e.g. `claude-cast doctor: OK agents=4 chezmoi=behind:0`.
 - **`reload`** — regenerates launchers from the current `CLAUDE_CAST`
   contents; use after editing the array directly (`set`/`unset` already call
   this for you).
@@ -317,6 +337,51 @@ source /path/to/zsh-claude-cast.plugin.zsh
 It’s a zsh array, not a string — that’s what lets it carry the empty
 `--setting-sources ""` argument cleanly instead of fighting shell quoting to
 smuggle an empty string through a scalar variable.
+
+## Agent definitions and the launch check
+
+A launcher is one way to cast a model; an agent framework that reads
+per-agent definition files (a `model:`/`effort:` frontmatter per agent) is
+another. If you use both, the two can drift: the launcher table says one
+thing, a hand-edited agent file on this machine says another, and the wrong
+model runs. **A casting table is only as good as the agent definitions on
+the machine that actually launches** — so the plugin can check them, locally,
+at zero token cost.
+
+`CLAUDE_CAST_AGENTS` is an associative array mapping an agent-definition name
+to a role, filled at load from a shipped default (generated from the same
+casting source as the tables) and overridable exactly like `CLAUDE_CAST` — a
+value you set before sourcing wins, the rest come from the default:
+
+```sh
+typeset -gA CLAUDE_CAST_AGENTS
+CLAUDE_CAST_AGENTS[builder]='build'   # your agent file builder.md should match the `build` row
+source /path/to/zsh-claude-cast.plugin.zsh
+```
+
+`CLAUDE_CAST_AGENTS_DIR` (default `$HOME/.claude/agents`) is where those
+`<agent>.md` files live. For each mapped agent, the check compares its
+frontmatter `model:`/`effort:` against the role’s table entry (the model with
+any trailing `[...]` suffix stripped, since frontmatter doesn’t take it) and
+reports `ok`, `mismatch` (which field, have vs want), `missing` (no file), or
+`unknown-role` (mapped to a role not in the table). It’s pure zsh file reads —
+no subprocess — so it’s cheap enough to run at launch. Run it on demand with
+[`claude-cast doctor`](#claude-cast-subcommands).
+
+**The launch check.** Every generated launcher runs that check — existing
+files only, mismatch only — right before `command claude`, governed by
+`CLAUDE_CAST_LAUNCH_CHECK`:
+
+- **`ask`** (default) — on a mismatch, print it and a hint to stderr, then
+  prompt `launch anyway? [y/N]` if stdin and stderr are both TTYs (default
+  No). If there’s no TTY to confirm (a script, a headless `clp<role>`), it
+  refuses without prompting and returns 3, so a drifted definition can’t
+  silently launch the wrong model in automation.
+- **`warn`** — print the mismatch, then launch anyway.
+- **`off`** — skip the check entirely.
+
+With no mismatch there’s zero output and no behaviour change, so if you don’t
+keep agent definitions (or they all match) you’ll never notice it’s there.
 
 ## Per-machine casting
 

@@ -4,7 +4,7 @@
 # install instructions and CLAUDE.md for the internals. Dependency-free zsh —
 # no external commands are required to generate or run the launchers.
 
-typeset -g CLAUDE_CAST_VERSION="0.4.0"
+typeset -g CLAUDE_CAST_VERSION="0.5.0"
 
 # ---------------------------------------------------------------------------
 # Config knobs (set these — or CLAUDE_CAST[role]=… entries — BEFORE sourcing
@@ -14,6 +14,10 @@ typeset -g CLAUDE_CAST_VERSION="0.4.0"
 : ${CLAUDE_CAST_PREFIX:=cl}
 : ${CLAUDE_CAST_FORCE:=0}
 : ${CLAUDE_CAST_PRESET:=max20}
+: ${CLAUDE_CAST_AGENTS_DIR:=$HOME/.claude/agents}
+# Launch-time agent-definition check: ask (default) | warn | off — see the
+# agent check below and README.md "Agent definitions and the launch check".
+: ${CLAUDE_CAST_LAUNCH_CHECK:=ask}
 
 # Resolves CLAUDE_CAST_PRESET to one of the shipped preset tables (max20,
 # max5, pro), falling back to max20 — with a stderr note — on anything else.
@@ -37,6 +41,13 @@ if ! (( ${+CLAUDE_CAST} )); then
   typeset -gA CLAUDE_CAST
 fi
 
+# Agent-definition -> role map, same override mechanism as CLAUDE_CAST: a value
+# set before sourcing wins; anything unset is filled from the shipped default
+# (_claude_cast_default_agents, generated from casting.json) at load time.
+if ! (( ${+CLAUDE_CAST_AGENTS} )); then
+  typeset -gA CLAUDE_CAST_AGENTS
+fi
+
 # Internal bookkeeping — not part of the public API.
 typeset -gA _CLAUDE_CAST_GENERATED       # launcher name -> 1 (ours to redefine/remove)
 typeset -gA _CLAUDE_CAST_LAUNCHER_CMD    # launcher name -> display command line
@@ -53,13 +64,14 @@ typeset -g _CLAUDE_CAST_COMPLETION_DONE=0
 # CLAUDE.md. Empty effort field (e.g. "claude-haiku-4-5|") means: pass no
 # --effort flag at all — required for Haiku, which errors on --effort.
 
-# casting:begin (generated from claude-ops casting.json @ 7a08a26 2026-09-03 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ 174d594 2026-09-21 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
 driver	claude-opus-4-8[1m]|high
 fable	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-opus-4-8[1m]|xhigh
+fix	claude-opus-4-8[1m]|high
 chore	claude-sonnet-5[1m]|low
 verify	claude-fable-5-1[1m]|xhigh
 taste	claude-fable-5-1[1m]|high
@@ -75,6 +87,7 @@ _claude_cast_default_table_max5() {
 driver	claude-opus-4-8[1m]|high
 fable	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-sonnet-5[1m]|high
+fix	claude-opus-4-8[1m]|high
 chore	claude-haiku-4-5|
 verify	claude-fable-5-1[1m]|high
 taste	claude-fable-5-1[1m]|high
@@ -90,11 +103,22 @@ _claude_cast_default_table_pro() {
 driver	claude-sonnet-5[1m]|high
 fable	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-sonnet-5[1m]|medium
+fix	claude-opus-4-8[1m]|high
 chore	claude-haiku-4-5|
 verify	claude-opus-4-8[1m]|high
 taste	claude-opus-4-8[1m]|high
 orchestrate	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 sonnet	claude-sonnet-5[1m]|high
+EOF
+}
+
+# The default agent-definition -> role map (agents key in casting.json).
+_claude_cast_default_agents() {
+  cat <<'EOF'
+builder	build
+fixer	fix
+chore	chore
+verifier	verify
 EOF
 }
 # casting:end
@@ -124,6 +148,19 @@ _claude_cast_merge_defaults() {
   done < <(_claude_cast_default_table)
 }
 
+# Fills in any default agent -> role mapping not already present in
+# CLAUDE_CAST_AGENTS. Same rule as _claude_cast_merge_defaults: a mapping the
+# user set before sourcing wins; the rest come from _claude_cast_default_agents.
+_claude_cast_merge_agent_defaults() {
+  local agent role
+  while IFS=$'\t' read -r agent role; do
+    [[ -z "$agent" ]] && continue
+    if [[ -z "${CLAUDE_CAST_AGENTS[$agent]+x}" ]]; then
+      CLAUDE_CAST_AGENTS[$agent]="$role"
+    fi
+  done < <(_claude_cast_default_agents)
+}
+
 # Parses "model|effort|extra flags" into globals __cc_model, __cc_effort,
 # __cc_extra (array). Deliberately not `local` — callers read the globals
 # immediately after calling.
@@ -135,6 +172,24 @@ _claude_cast_parse_spec() {
   __cc_effort="${parts[2]:-}"
   local extra="${parts[3]:-}"
   __cc_extra=(${(z)extra})
+}
+
+# Resolves a spec's launch argv into the global array __cc_argv (no `command
+# claude` prefix): --model <model>, then --effort <effort> when the effort is
+# non-empty, then each extra token with a leading "~" expanded to $HOME. Both
+# the launcher bodies and `claude-cast argv` call this, so the two cannot
+# disagree. Deliberately not `local` — callers read __cc_argv immediately.
+_claude_cast_resolve_argv() {
+  local model=$1 effort=$2
+  shift 2
+  local -a extra=("$@")
+  local i
+  for (( i = 1; i <= ${#extra}; i++ )); do
+    extra[i]="${extra[i]/#\~/$HOME}"
+  done
+  __cc_argv=(--model "$model")
+  [[ -n "$effort" ]] && __cc_argv+=(--effort "$effort")
+  (( ${#extra} )) && __cc_argv+=("${extra[@]}")
 }
 
 # True if $1 already resolves to a command, alias, function, or builtin.
@@ -183,31 +238,26 @@ _claude_cast_display_cmdline() {
 _claude_cast_define_launcher() {
   local name=$1 headless=$2 model=$3 effort=$4
   shift 4
-  local -a extra=("$@")
-
-  # The row string is data, so a leading "~" in an extra-flag word doesn't
-  # expand on its own — expand it here, at launch time, to $HOME.
-  local i
-  for (( i = 1; i <= ${#extra}; i++ )); do
-    extra[i]="${extra[i]/#\~/$HOME}"
-  done
 
   if _claude_cast_should_skip "$name"; then
     _CLAUDE_CAST_SKIPPED+=("$name")
     return 0
   fi
 
-  local -a fixed=(command claude --model "$model")
-  [[ -n "$effort" ]] && fixed+=(--effort "$effort")
-  (( ${#extra} )) && fixed+=("${extra[@]}")
+  # Same resolution path as `claude-cast argv` (--model/--effort/extra, with any
+  # leading "~" in an extra flag expanded to $HOME at launch time).
+  _claude_cast_resolve_argv "$model" "$effort" "$@"
+  local -a fixed=(command claude "${__cc_argv[@]}")
   local -a display=("${fixed[@]}")
   if [[ "$headless" == 1 ]]; then
     fixed+=("${CLAUDE_CAST_HEADLESS_FLAGS[@]}")
     display+=("${CLAUDE_CAST_HEADLESS_FLAGS[@]}")
   fi
 
+  # The launch-time agent check runs before `command claude` (see
+  # _claude_cast_launch_guard); on a mismatch it can abort with a non-zero code.
   local body="$(print -r -- ${(q@)fixed})"
-  eval "function $name { $body \"\$@\"; }"
+  eval "function $name { _claude_cast_launch_guard || return; $body \"\$@\"; }"
   _CLAUDE_CAST_GENERATED[$name]=1
   _CLAUDE_CAST_LAUNCHER_CMD[$name]="$(_claude_cast_display_cmdline "${display[@]}")"
 
@@ -224,7 +274,7 @@ _claude_cast_generate_fixed() {
   if _claude_cast_should_skip "$plain"; then
     _CLAUDE_CAST_SKIPPED+=("$plain")
   else
-    eval "function $plain { command claude \"\$@\"; }"
+    eval "function $plain { _claude_cast_launch_guard || return; command claude \"\$@\"; }"
     _CLAUDE_CAST_GENERATED[$plain]=1
     _CLAUDE_CAST_LAUNCHER_CMD[$plain]="command claude"
     if (( ${+functions[compdef]} )) && (( ${+functions[_claude]} )); then
@@ -235,7 +285,7 @@ _claude_cast_generate_fixed() {
   if _claude_cast_should_skip "$cont"; then
     _CLAUDE_CAST_SKIPPED+=("$cont")
   else
-    eval "function $cont { command claude --continue \"\$@\"; }"
+    eval "function $cont { _claude_cast_launch_guard || return; command claude --continue \"\$@\"; }"
     _CLAUDE_CAST_GENERATED[$cont]=1
     _CLAUDE_CAST_LAUNCHER_CMD[$cont]="command claude --continue"
     if (( ${+functions[compdef]} )) && (( ${+functions[_claude]} )); then
@@ -301,6 +351,119 @@ _claude_cast_json_escape() {
   s=${s//\\/\\\\}
   s=${s//\"/\\\"}
   print -r -- "$s"
+}
+
+# ---------------------------------------------------------------------------
+# Agent-definition check (a casting table is only as good as the agent
+# definitions on the machine that launches). Pure zsh file reads — no
+# subprocess — so it adds negligible launch latency.
+# ---------------------------------------------------------------------------
+
+# Reads one frontmatter field ("model"/"effort") from an agent .md file, pure
+# zsh. Only scans between the first two "---" lines. Sets __cc_fm_value to the
+# value ("" when the key is absent). model/effort values carry no internal
+# whitespace, so all surrounding whitespace (incl. a trailing CR) is stripped.
+_claude_cast_read_frontmatter_field() {
+  local file=$1 key=$2
+  __cc_fm_value=""
+  local line in_fm=0
+  while IFS= read -r line; do
+    if [[ "$line" == "---" ]]; then
+      (( in_fm )) && break
+      in_fm=1
+      continue
+    fi
+    (( in_fm )) || continue
+    if [[ "$line" == "${key}:"* ]]; then
+      local v="${line#${key}:}"
+      __cc_fm_value="${v//[[:space:]]/}"
+      return 0
+    fi
+  done < "$file"
+  return 0
+}
+
+# Checks each (agent, role) in CLAUDE_CAST_AGENTS against its
+# $CLAUDE_CAST_AGENTS_DIR/<agent>.md. Populates _CLAUDE_CAST_AGENT_RESULTS with
+# one "status<TAB>agent<TAB>detail" record per agent (status: ok | mismatch |
+# missing | unknown-role), and _CLAUDE_CAST_AGENT_FILES_SEEN with the number of
+# mapped agent files that exist (so a caller can tell "convention not used"
+# from real drift). Expected model = the role's table model with a trailing
+# [...] suffix stripped; expected effort = the role's effort (empty when the
+# key is absent).
+_claude_cast_agent_check() {
+  _CLAUDE_CAST_AGENT_RESULTS=()
+  _CLAUDE_CAST_AGENT_FILES_SEEN=0
+  local -a agents=("${(@ok)CLAUDE_CAST_AGENTS}")
+  local agent role file want_model want_effort have_model have_effort
+  for agent in "${agents[@]}"; do
+    role="${CLAUDE_CAST_AGENTS[$agent]}"
+    if [[ -z "${CLAUDE_CAST[$role]+x}" ]]; then
+      _CLAUDE_CAST_AGENT_RESULTS+=("unknown-role"$'\t'"$agent"$'\t'"mapped role '$role' is not in the casting table")
+      continue
+    fi
+    file="${CLAUDE_CAST_AGENTS_DIR}/${agent}.md"
+    if [[ ! -f "$file" ]]; then
+      _CLAUDE_CAST_AGENT_RESULTS+=("missing"$'\t'"$agent"$'\t'"$file")
+      continue
+    fi
+    (( _CLAUDE_CAST_AGENT_FILES_SEEN++ ))
+    _claude_cast_parse_spec "${CLAUDE_CAST[$role]}"
+    want_model="${__cc_model%\[*\]}"
+    want_effort="$__cc_effort"
+    _claude_cast_read_frontmatter_field "$file" model; have_model="$__cc_fm_value"
+    _claude_cast_read_frontmatter_field "$file" effort; have_effort="$__cc_fm_value"
+    local -a diffs=()
+    [[ "$have_model" != "$want_model" ]] && diffs+=("model have=${have_model:-<none>} want=${want_model}")
+    [[ "$have_effort" != "$want_effort" ]] && diffs+=("effort have=${have_effort:-<none>} want=${want_effort:-<none>}")
+    if (( ${#diffs} )); then
+      _CLAUDE_CAST_AGENT_RESULTS+=("mismatch"$'\t'"$agent"$'\t'"${(j:; :)diffs}")
+    else
+      _CLAUDE_CAST_AGENT_RESULTS+=("ok"$'\t'"$agent"$'\t')
+    fi
+  done
+}
+
+# Launch-time gate, run by every generated launcher before `command claude`.
+# Existing files only, mismatch only. Mode from CLAUDE_CAST_LAUNCH_CHECK:
+# off  -> skip entirely; warn -> print and continue; ask (default) -> prompt
+# when stdin and stderr are both TTYs (default No -> return 1), else refuse
+# without prompting (return 3). No mismatch: zero output, return 0.
+_claude_cast_launch_guard() {
+  local mode="${CLAUDE_CAST_LAUNCH_CHECK:-ask}"
+  [[ "$mode" == off ]] && return 0
+
+  _claude_cast_agent_check
+  local -a mismatches=()
+  local rec rest agent detail
+  for rec in "${_CLAUDE_CAST_AGENT_RESULTS[@]}"; do
+    [[ "${rec%%$'\t'*}" == mismatch ]] || continue
+    rest="${rec#*$'\t'}"
+    agent="${rest%%$'\t'*}"
+    detail="${rest#*$'\t'}"
+    mismatches+=("${agent}.md ${detail}")
+  done
+  (( ${#mismatches} == 0 )) && return 0
+
+  print -u2 -- "zsh-claude-cast: agent definition drift before launch:"
+  local m
+  for m in "${mismatches[@]}"; do
+    print -u2 -- "  ${m}"
+  done
+  print -u2 -- "  hint: run \`claude-cast doctor\`, then update your dotfiles (chezmoi) to match the casting table."
+
+  [[ "$mode" == warn ]] && return 0
+
+  # ask
+  if [[ -t 0 && -t 2 ]]; then
+    print -u2 -n -- "launch anyway? [y/N] "
+    local reply
+    read -r reply
+    [[ "$reply" == [yY]* ]] && return 0
+    return 1
+  fi
+  print -u2 -- "zsh-claude-cast: refusing to launch (agent drift, no TTY to confirm; set CLAUDE_CAST_LAUNCH_CHECK=warn or off to override)"
+  return 3
 }
 
 # ---------------------------------------------------------------------------
@@ -389,23 +552,55 @@ _claude_cast_cmd_unset() {
 
 _claude_cast_cmd_export() {
   local -a roles=("${(@ok)CLAUDE_CAST}")
-  local role n=${#roles} i=0 comma
+  local role
   print -r -- "{"
   printf '  "preset": "%s",\n' "$(_claude_cast_json_escape "$_CLAUDE_CAST_ACTIVE_PRESET")"
+  # Every role line carries a trailing comma — "agents" is the final key.
   for role in "${roles[@]}"; do
-    (( i++ ))
     _claude_cast_parse_spec "${CLAUDE_CAST[$role]}"
     local extra_str="${(j: :)__cc_extra}"
-    comma=","
-    (( i == n )) && comma=""
-    printf '  "%s": {"model": "%s", "effort": "%s", "extra": "%s"}%s\n' \
+    printf '  "%s": {"model": "%s", "effort": "%s", "extra": "%s"},\n' \
       "$(_claude_cast_json_escape "$role")" \
       "$(_claude_cast_json_escape "$__cc_model")" \
       "$(_claude_cast_json_escape "$__cc_effort")" \
-      "$(_claude_cast_json_escape "$extra_str")" \
-      "$comma"
+      "$(_claude_cast_json_escape "$extra_str")"
   done
+  local -a agents=("${(@ok)CLAUDE_CAST_AGENTS}")
+  local a n=${#agents} i=0 comma
+  if (( n == 0 )); then
+    print -r -- '  "agents": {}'
+  else
+    print -r -- '  "agents": {'
+    for a in "${agents[@]}"; do
+      (( i++ ))
+      comma=","
+      (( i == n )) && comma=""
+      printf '    "%s": "%s"%s\n' \
+        "$(_claude_cast_json_escape "$a")" \
+        "$(_claude_cast_json_escape "${CLAUDE_CAST_AGENTS[$a]}")" \
+        "$comma"
+    done
+    print -r -- '  }'
+  fi
   print -r -- "}"
+}
+
+_claude_cast_cmd_argv() {
+  if (( $# < 1 )); then
+    print -u2 -- "usage: claude-cast argv <role>"
+    return 1
+  fi
+  local role=$1
+  if [[ -z "${CLAUDE_CAST[$role]+x}" ]]; then
+    print -u2 -- "claude-cast: unknown role: $role"
+    return 1
+  fi
+  _claude_cast_parse_spec "${CLAUDE_CAST[$role]}"
+  _claude_cast_resolve_argv "$__cc_model" "$__cc_effort" "${__cc_extra[@]}"
+  local tok
+  for tok in "${__cc_argv[@]}"; do
+    print -r -- "$tok"
+  done
 }
 
 _claude_cast_cmd_lint() {
@@ -473,6 +668,140 @@ _claude_cast_cmd_presets() {
   done
 }
 
+# Runs `git fetch --quiet` in $1 with a ~10s ceiling, portable (no GNU
+# `timeout`): background it, poll, then kill if it overran a dead network.
+_claude_cast_bounded_git_fetch() {
+  local dir=$1
+  command git -C "$dir" fetch --quiet 2>/dev/null &
+  local pid=$! i=0
+  while (( i < 100 )) && kill -0 "$pid" 2>/dev/null; do
+    sleep 0.1
+    (( i++ ))
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null
+    sleep 0.2
+    kill -9 "$pid" 2>/dev/null
+  fi
+  wait "$pid" 2>/dev/null
+}
+
+# `claude-cast doctor [--fetch] [--brief]`: runs the lint, the agent-definition
+# check, and a chezmoi-lag check; exit 0 clean, 1 on any drift. --brief prints
+# exactly one line. --fetch refreshes chezmoi's remote refs (bounded) first.
+_claude_cast_cmd_doctor() {
+  local fetch=0 brief=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+      --fetch) fetch=1 ;;
+      --brief) brief=1 ;;
+      *) print -u2 -- "usage: claude-cast doctor [--fetch] [--brief]"; return 1 ;;
+    esac
+  done
+
+  local drift=0
+  local -a lines=() brief_drift=()
+
+  # 1. lint (existing).
+  local lint_out lint_rc
+  lint_out="$(_claude_cast_cmd_lint)"
+  lint_rc=$?
+  if (( lint_rc != 0 )); then
+    drift=1
+    brief_drift+=("lint")
+    lines+=("lint: issues found")
+    lines+=("${(f)lint_out}")
+  else
+    lines+=("lint: ok")
+  fi
+
+  # 2. agent definitions.
+  _claude_cast_agent_check
+  local -a mapped=("${(@ok)CLAUDE_CAST_AGENTS}")
+  local agents_brief
+  if (( ${#mapped} == 0 )); then
+    agents_brief="agents=0"
+    lines+=("agents: no agent map configured — skipped")
+  elif (( _CLAUDE_CAST_AGENT_FILES_SEEN == 0 )); then
+    agents_brief="agents=skipped"
+    lines+=("agents: no mapped agent definitions found — skipped (${CLAUDE_CAST_AGENTS_DIR})")
+  else
+    agents_brief="agents=${_CLAUDE_CAST_AGENT_FILES_SEEN}"
+  fi
+  local rec rest st agent detail
+  for rec in "${_CLAUDE_CAST_AGENT_RESULTS[@]}"; do
+    st="${rec%%$'\t'*}"
+    rest="${rec#*$'\t'}"
+    agent="${rest%%$'\t'*}"
+    detail="${rest#*$'\t'}"
+    case "$st" in
+      ok) lines+=("agents: ${agent}.md ok") ;;
+      mismatch)
+        drift=1
+        brief_drift+=("${agent}.md ${detail}")
+        lines+=("agents: ${agent}.md MISMATCH — ${detail}")
+        ;;
+      missing)
+        # Drift only when the convention is actually in use (some file exists).
+        if (( _CLAUDE_CAST_AGENT_FILES_SEEN > 0 )); then
+          drift=1
+          brief_drift+=("${agent}.md missing")
+          lines+=("agents: ${agent}.md MISSING — ${detail}")
+        fi
+        ;;
+      unknown-role)
+        drift=1
+        brief_drift+=("${agent}.md unknown-role")
+        lines+=("agents: ${agent}.md UNKNOWN-ROLE — ${detail}")
+        ;;
+    esac
+  done
+
+  # 3. chezmoi lag.
+  local chezmoi_brief="skipped"
+  if (( ${+commands[chezmoi]} )); then
+    local src
+    src="$(chezmoi source-path 2>/dev/null)"
+    if [[ -n "$src" && -d "$src" ]]; then
+      (( fetch )) && _claude_cast_bounded_git_fetch "$src"
+      local upstream behind
+      upstream="$(command git -C "$src" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)"
+      if [[ -n "$upstream" ]]; then
+        behind="$(command git -C "$src" rev-list --count "HEAD..${upstream}" 2>/dev/null)"
+        [[ -z "$behind" ]] && behind=0
+        chezmoi_brief="behind:${behind}"
+        lines+=("chezmoi: source ${src} is ${behind} commit(s) behind ${upstream} (as of last fetch)")
+        (( behind > 0 )) && drift=1
+      else
+        chezmoi_brief="no-upstream"
+        lines+=("chezmoi: source ${src} has no upstream tracking branch — cannot measure lag")
+      fi
+    else
+      lines+=("chezmoi: source-path unavailable — skipped")
+    fi
+  else
+    lines+=("chezmoi: not on PATH — skipped")
+  fi
+
+  if (( brief )); then
+    if (( drift )); then
+      local -a brief_all=("${brief_drift[@]}" "chezmoi=${chezmoi_brief}")
+      print -r -- "claude-cast doctor: DRIFT ${(j:; :)brief_all}"
+    else
+      print -r -- "claude-cast doctor: OK ${agents_brief} chezmoi=${chezmoi_brief}"
+    fi
+  else
+    local l
+    for l in "${lines[@]}"; do
+      print -r -- "$l"
+    done
+    print -r -- "claude-cast doctor: $( (( drift )) && print -n DRIFT || print -n OK )"
+  fi
+
+  (( drift )) && return 1
+  return 0
+}
+
 _claude_cast_cmd_help() {
   cat <<EOF
 zsh-claude-cast ${CLAUDE_CAST_VERSION} — launchers projected from a CLAUDE_CAST casting table
@@ -487,9 +816,11 @@ Subcommands:
                                  Add or replace a role, then regenerate launchers
                                  ("-" or "" for effort means: no --effort flag)
   unset <role>                  Remove a role and its launchers
+  argv <role>                   Print a role's launch args, one token per line
   export                        Print the casting table as JSON (stable key order)
   presets                       Print all three shipped preset tables
   lint                          Warn on alias model names, Haiku+effort, unknown efforts
+  doctor [--fetch] [--brief]    Lint + agent-definition check + chezmoi lag; exit 1 on drift
   reload                        Regenerate launchers after editing CLAUDE_CAST directly
   help                          Show this message
   version                       Print the plugin version
@@ -497,6 +828,7 @@ Subcommands:
 Active preset: ${_CLAUDE_CAST_ACTIVE_PRESET} (CLAUDE_CAST_PRESET, set before sourcing).
 Generated per role <r>: ${CLAUDE_CAST_PREFIX}<r> and ${CLAUDE_CAST_PREFIX}p<r> (headless).
 Fixed helpers: ${CLAUDE_CAST_PREFIX} (bare claude), ${CLAUDE_CAST_PREFIX}r (claude --continue).
+Launch-time agent check: CLAUDE_CAST_LAUNCH_CHECK=ask (default) | warn | off.
 EOF
 }
 
@@ -509,9 +841,11 @@ claude-cast() {
     which) _claude_cast_cmd_which "$@" ;;
     set) _claude_cast_cmd_set "$@" ;;
     unset) _claude_cast_cmd_unset "$@" ;;
+    argv) _claude_cast_cmd_argv "$@" ;;
     export) _claude_cast_cmd_export ;;
     presets) _claude_cast_cmd_presets ;;
     lint) _claude_cast_cmd_lint ;;
+    doctor) _claude_cast_cmd_doctor "$@" ;;
     reload) _claude_cast_reload ;;
     help|-h|--help) _claude_cast_cmd_help ;;
     version|-v|--version) print -r -- "$CLAUDE_CAST_VERSION" ;;
@@ -533,5 +867,6 @@ if [[ -n "$CLAUDE_CAST_FILE" && -r "$CLAUDE_CAST_FILE" ]]; then
 fi
 
 _claude_cast_merge_defaults
+_claude_cast_merge_agent_defaults
 _claude_cast_generate_all
 _claude_cast_try_completion

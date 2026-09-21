@@ -17,7 +17,13 @@ REPO_DIR="${SCRIPT_DIR:h}"
 PLUGIN="${REPO_DIR}/zsh-claude-cast.plugin.zsh"
 
 STUB_DIR="$(mktemp -d)"
-trap 'rm -rf "$STUB_DIR"' EXIT
+# An empty agent-definition dir, so the launch-time agent check (added 0.5.0)
+# finds every mapped agent "missing" — never a mismatch — and stays silent by
+# default. Without this, run_zsh would read the real ~/.claude/agents on the
+# host and a launcher's guard could fire mid-test. Tests that exercise the
+# check set CLAUDE_CAST_AGENTS_DIR themselves inside the snippet.
+AGENTS_EMPTY_DIR="$(mktemp -d)"
+trap 'rm -rf "$STUB_DIR" "$AGENTS_EMPTY_DIR"' EXIT
 
 cat > "$STUB_DIR/claude" <<'STUB'
 #!/usr/bin/env zsh
@@ -46,7 +52,7 @@ bad() {
 # Runs a zsh snippet in a fresh, hermetic subprocess with the stub claude on
 # PATH. Prints stdout+stderr merged, preserves the snippet's own exit code.
 run_zsh() {
-  PATH="$STUB_DIR:$PATH" zsh -f -c "$1" 2>&1
+  PATH="$STUB_DIR:$PATH" CLAUDE_CAST_AGENTS_DIR="$AGENTS_EMPTY_DIR" zsh -f -c "$1" 2>&1
 }
 
 assert_eq() {
@@ -353,6 +359,144 @@ assert_not_contains "claude-cast which does not print the unexpanded ~" "~/skill
 out=$(run_zsh "source '${PLUGIN}'; claude-cast which fable")
 assert_contains "the shipped fable row's ~ expands to the real \$HOME" "${HOME}/.claude/skills/fable-mode/SKILL.md" "$out"
 assert_not_contains "the shipped fable row's which output carries no literal ~" "~/.claude/skills/fable-mode/SKILL.md" "$out"
+
+# ---------------------------------------------------------------------------
+# 23. the fix role generates clfix/clpfix, resolving to Opus 4.8 at high
+# ---------------------------------------------------------------------------
+out=$(run_zsh "source '${PLUGIN}'; (( \$+functions[clfix] )) && print HASFIX; (( \$+functions[clpfix] )) && print HASPFIX; clfix foo")
+assert_contains "clfix launcher exists" "HASFIX" "$out"
+assert_contains "clpfix launcher exists" "HASPFIX" "$out"
+assert_contains "clfix resolves to the max20 fix row (Opus 4.8, high)" $'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>high<\n>foo<' "$out"
+
+# ---------------------------------------------------------------------------
+# 24. `claude-cast argv <role>` prints resolved launch args, one token per line
+# ---------------------------------------------------------------------------
+out=$(run_zsh "source '${PLUGIN}'; claude-cast argv build")
+assert_eq "argv build prints --model/--effort tokens, one per line, no 'claude' word" $'--model\nclaude-opus-4-8[1m]\n--effort\nxhigh' "$out"
+
+out=$(run_zsh "source '${PLUGIN}'; claude-cast argv fable")
+assert_contains "argv fable expands a leading ~ in the extra flag to \$HOME" $'--append-system-prompt-file\n'"${HOME}/.claude/skills/fable-mode/SKILL.md" "$out"
+assert_not_contains "argv fable prints no unexpanded ~" "~/.claude/skills/fable-mode/SKILL.md" "$out"
+
+out=$(run_zsh "CLAUDE_CAST_PRESET=max5; source '${PLUGIN}'; claude-cast argv chore")
+assert_eq "argv on an empty-effort role omits --effort" $'--model\nclaude-haiku-4-5' "$out"
+
+out=$(run_zsh "source '${PLUGIN}'; claude-cast argv nope; print rc=\$?")
+assert_contains "argv on an unknown role warns on stderr" "unknown role: nope" "$out"
+assert_contains "argv on an unknown role returns 1" "rc=1" "$out"
+
+# ---------------------------------------------------------------------------
+# 25. `export` carries the agents map (and the fix role) as valid JSON
+# ---------------------------------------------------------------------------
+json_out=$(run_zsh "source '${PLUGIN}'; claude-cast export")
+print -r -- "$json_out" > "${STUB_DIR}/export-agents.json"
+if command -v node >/dev/null 2>&1; then
+  if node -e '
+    const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    if (typeof d.agents !== "object" || d.agents === null) { console.error("no agents object"); process.exit(1); }
+    if (d.agents.builder !== "build") { console.error("agents.builder != build"); process.exit(1); }
+    if (d.agents.fixer !== "fix") { console.error("agents.fixer != fix"); process.exit(1); }
+    if (!d.fix || d.fix.model !== "claude-opus-4-8[1m]") { console.error("fix role missing/wrong"); process.exit(1); }
+    if (typeof d.preset !== "string") { console.error("preset key lost"); process.exit(1); }
+    process.exit(0);
+  ' "${STUB_DIR}/export-agents.json"; then
+    ok "export JSON carries the agents map and the fix role, keeping preset"
+  else
+    bad "export JSON carries the agents map and the fix role, keeping preset" "valid JSON with agents+fix" "$json_out"
+  fi
+else
+  print -u2 -- "  SKIP - export agents JSON validation (node not on PATH)"
+fi
+
+# ---------------------------------------------------------------------------
+# 26. `claude-cast doctor`: clean / mismatch / missing / convention-not-used.
+#     Run with PATH=/usr/bin:/bin so `chezmoi` (installed under a Homebrew
+#     prefix, never /usr/bin or /bin) is not found — chezmoi=skipped, so the
+#     result does not depend on the host's dotfiles state — while `cat` (used
+#     by the generated default-table heredocs) still resolves. A temp
+#     CLAUDE_CAST_AGENTS_DIR carries the agent defs under test.
+# ---------------------------------------------------------------------------
+
+# Writes an agent .md with the given frontmatter (effort omitted when empty).
+write_agent_md() {
+  local dir=$1 name=$2 model=$3 effort=$4
+  {
+    print -- '---'
+    print -- "name: $name"
+    print -- 'description: fixture'
+    print -- "model: $model"
+    [[ -n "$effort" ]] && print -- "effort: $effort"
+    print -- '---'
+    print -- 'body'
+  } > "$dir/$name.md"
+}
+
+# A dir whose four default-mapped agent defs match the shipped max20 table.
+# Coupled to that table on purpose — this is what "in sync" looks like; if the
+# build/fix/chore/verify rows change, update these four.
+make_clean_agents_dir() {
+  local dir=$1
+  write_agent_md "$dir" builder  claude-opus-4-8  xhigh
+  write_agent_md "$dir" fixer    claude-opus-4-8  high
+  write_agent_md "$dir" chore    claude-sonnet-5  low
+  write_agent_md "$dir" verifier claude-fable-5-1 xhigh
+}
+
+CLEAN_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$CLEAN_AGENTS"
+out=$(run_zsh "PATH=/usr/bin:/bin; export CLAUDE_CAST_AGENTS_DIR='$CLEAN_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
+assert_contains "doctor reports OK when the agent defs match the table" "claude-cast doctor: OK" "$out"
+assert_contains "doctor clean lists an ok agent" "builder.md ok" "$out"
+assert_contains "doctor skips chezmoi when it is not on PATH" "chezmoi: not on PATH — skipped" "$out"
+assert_contains "doctor clean exits 0" "rc=0" "$out"
+
+brief_out=$(run_zsh "PATH=/usr/bin:/bin; export CLAUDE_CAST_AGENTS_DIR='$CLEAN_AGENTS'; source '${PLUGIN}'; claude-cast doctor --brief")
+brief_lines=("${(@f)brief_out}")
+assert_eq "doctor --brief prints exactly one line" "1" "${#brief_lines}"
+assert_contains "doctor --brief OK line names agents and chezmoi state" "claude-cast doctor: OK agents=4 chezmoi=skipped" "$brief_out"
+
+MISMATCH_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$MISMATCH_AGENTS"
+write_agent_md "$MISMATCH_AGENTS" builder claude-sonnet-5 xhigh   # wrong model
+out=$(run_zsh "PATH=/usr/bin:/bin; export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_AGENTS'; source '${PLUGIN}'; claude-cast doctor --brief; print rc=\$?")
+assert_contains "doctor reports DRIFT on a model mismatch" "DRIFT" "$out"
+assert_contains "doctor names the mismatched field, have vs want" "builder.md model have=claude-sonnet-5 want=claude-opus-4-8" "$out"
+assert_contains "doctor exits 1 on drift" "rc=1" "$out"
+
+MISSING_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$MISSING_AGENTS"; rm -f "$MISSING_AGENTS/fixer.md"
+out=$(run_zsh "PATH=/usr/bin:/bin; export CLAUDE_CAST_AGENTS_DIR='$MISSING_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
+assert_contains "doctor reports a missing mapped agent as drift when others exist" "fixer.md MISSING" "$out"
+assert_contains "doctor exits 1 when a mapped agent file is missing" "rc=1" "$out"
+
+out=$(run_zsh "PATH=/usr/bin:/bin; export CLAUDE_CAST_AGENTS_DIR='$AGENTS_EMPTY_DIR'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
+assert_contains "doctor prints one skipped line when the agent convention is not used" "no mapped agent definitions found — skipped" "$out"
+assert_contains "doctor is clean (exit 0) when the agent convention is not used" "rc=0" "$out"
+
+rm -rf "$CLEAN_AGENTS" "$MISMATCH_AGENTS" "$MISSING_AGENTS"
+
+# ---------------------------------------------------------------------------
+# 27. launch-time agent check: ask (non-TTY) refuses with 3 and never runs the
+#     stub; warn runs it; off is silent; no-mismatch is silent.
+# ---------------------------------------------------------------------------
+MISMATCH_LAUNCH="$(mktemp -d)"; write_agent_md "$MISMATCH_LAUNCH" builder claude-sonnet-5 xhigh
+
+out=$(run_zsh "export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_LAUNCH'; source '${PLUGIN}'; clbuild foo; print rc=\$?")
+assert_contains "launch check (ask, non-TTY) prints the mismatch" "builder.md model have=claude-sonnet-5 want=claude-opus-4-8" "$out"
+assert_contains "launch check (ask, non-TTY) refuses without a TTY" "refusing to launch" "$out"
+assert_contains "launch check (ask, non-TTY) returns 3" "rc=3" "$out"
+assert_not_contains "launch check (ask, non-TTY) never runs claude" ">foo<" "$out"
+
+out=$(run_zsh "export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_LAUNCH'; CLAUDE_CAST_LAUNCH_CHECK=warn; source '${PLUGIN}'; clbuild foo")
+assert_contains "launch check (warn) still warns" "agent definition drift before launch" "$out"
+assert_contains "launch check (warn) runs claude anyway" ">foo<" "$out"
+
+out=$(run_zsh "export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_LAUNCH'; CLAUDE_CAST_LAUNCH_CHECK=off; source '${PLUGIN}'; clbuild foo")
+assert_not_contains "launch check (off) is silent" "agent definition drift" "$out"
+assert_contains "launch check (off) runs claude" ">foo<" "$out"
+
+out=$(run_zsh "source '${PLUGIN}'; clbuild foo")
+assert_not_contains "launch check with no mismatch is silent" "agent definition drift" "$out"
+assert_contains "launch check with no mismatch runs claude normally" $'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>xhigh<\n>foo<' "$out"
+
+rm -rf "$MISMATCH_LAUNCH"
 
 # ---------------------------------------------------------------------------
 # Summary
