@@ -683,6 +683,28 @@ assert_contains "an unknown-role user mapping is drift (exit 1)" "rc=1" "$out"
 rm -rf "$PRO_AGENTS"
 
 # ---------------------------------------------------------------------------
+# 33. interactive launch-guard branch (pty). The launchers' `ask` prompt only
+#     fires when stdin AND stderr are terminals — a branch these piped tests
+#     can't reach — so test/pty.zsh drives it under a real pseudo-terminal
+#     (zsh/zpty). Run it as the last section and fold its own PASS/FAIL tally
+#     into the totals and exit status below. It SKIPs (counting zero, never a
+#     silent pass) if zsh/zpty can't load.
+# ---------------------------------------------------------------------------
+print --
+print -- "== interactive launch-guard tests (test/pty.zsh, under a pty) =="
+PTY_OUT="$(zsh "$SCRIPT_DIR/pty.zsh" 2>&1)"
+PTY_RC=$?
+print -r -- "$PTY_OUT"
+if [[ "$PTY_OUT" =~ 'PASS: ([0-9]+)  FAIL: ([0-9]+)' ]]; then
+  (( PASS += match[1] ))
+  (( FAIL += match[2] ))
+  (( match[2] > 0 )) && FAILURES+=("test/pty.zsh: ${match[2]} interactive-guard case(s) failed — see the pty section above")
+else
+  (( FAIL++ ))
+  FAILURES+=("test/pty.zsh: could not read its PASS/FAIL tally (exit ${PTY_RC})")
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 print --

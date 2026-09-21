@@ -24,6 +24,16 @@
   builds on Opus 4.8 (at `high`); on `pro`, where Opus quota is scarce,
   `build` stays on Sonnet 5 — keep those builds small and fully specified, and
   never hand it the fix pass.
+- **Interactive launch-guard coverage (`test/pty.zsh`).** The `ask` guard’s
+  `launch anyway? [y/N]` prompt only appears when stdin and stderr are both
+  terminals — a branch the piped suite can’t reach — so a new file drives it
+  under a real pseudo-terminal (zsh’s built-in `zsh/zpty`, no `expect`):
+  `y`/`Y`/`yes` launch and return the stub’s own exit status; `n`/empty/`x`
+  return 1 and never launch; EOF (Ctrl-D) never launches; Ctrl-C never
+  launches and the calling shell survives; stdin-a-terminal-but-stderr-a-file
+  refuses with 3 without prompting; and the no-mismatch and `warn` paths never
+  prompt. `run.zsh` runs it last and folds its tally into the totals; it
+  prints a visible `SKIP` (counting zero) where `zsh/zpty` can’t load.
 
 ## 0.5.0 - 2026-09-21
 

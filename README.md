@@ -501,6 +501,15 @@ hermetic `zsh -f` subprocesses. The one exception: `export`‘s JSON output is
 validated with `node -e`, since parsing JSON correctly is not something to
 hand-roll in shell.
 
+`run.zsh`’s last section runs `test/pty.zsh`, which covers the one branch the
+piped tests can’t reach: the `ask` launch guard’s `launch anyway? [y/N]`
+prompt, shown only when stdin and stderr are both terminals. Each launcher
+runs under a real pseudo-terminal (zsh’s built-in `zsh/zpty` — no `expect`,
+nothing to install), so the interactive answers, exit codes, EOF/Ctrl-C, and
+the no-terminal refusal are exercised as a person hits them, and the counts
+fold into the totals above. If `zsh/zpty` can’t load it prints a visible
+`SKIP` and counts zero — never a silent pass.
+
 ## License
 
 MIT © Danniel T. Gaidula
