@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+## 0.6.0 - 2026-09-21
+
+- **Two new roles: `gate` and `fanout`.** `gate` — a build-side adversarial
+  phase gate (Opus 4.8 at `xhigh` on `max20`/`max5`, `high` on `pro`), added
+  right after `build`/`fix`. `fanout` — mechanical volume work over
+  independent items (Haiku, no effort), added right after `chore`. Both
+  generate `cl<role>`/`clp<role>` like any other role.
+- **Seven default agent mappings.** `CLAUDE_CAST_AGENTS` now ships
+  `builder`→`build`, `fixer`→`fix`, `gate`→`gate`, `chore`→`chore`,
+  `fanout`→`fanout`, `verifier`→`verify`, and `analyst`→`review`.
+- **A default agent mapping whose role isn’t in the active preset is skipped
+  silently** — e.g. `analyst`→`review` under `pro`, which has no `review`
+  row: it is neither `unknown-role` nor drift, so `doctor` stays clean and the
+  launch guard stays quiet. A mapping *you* set to a role the active preset
+  doesn’t have is still reported as `unknown-role`.
+- **Presets rebalanced for fix-pass reliability.** In the author’s use,
+  Sonnet 5 — even at `high` — introduced regressions when fixing verified
+  findings and looped on larger builds, while staying reliable for chores and
+  documented pipelines. So `fix` is Opus 4.8 on every preset, and `max5` now
+  builds on Opus 4.8 (at `high`); on `pro`, where Opus quota is scarce,
+  `build` stays on Sonnet 5 — keep those builds small and fully specified, and
+  never hand it the fix pass.
+
 ## 0.5.0 - 2026-09-21
 
 - **New `fix` role.** A well-scoped fix pass over already-verified findings

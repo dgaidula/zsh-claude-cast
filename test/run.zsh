@@ -439,15 +439,18 @@ write_agent_md() {
   } > "$dir/$name.md"
 }
 
-# A dir whose four default-mapped agent defs match the shipped max20 table.
+# A dir whose seven default-mapped agent defs match the shipped max20 table.
 # Coupled to that table on purpose — this is what "in sync" looks like; if the
-# build/fix/chore/verify rows change, update these four.
+# build/fix/gate/chore/fanout/verify/review rows change, update these seven.
 make_clean_agents_dir() {
   local dir=$1
   write_agent_md "$dir" builder  claude-opus-4-8  xhigh
   write_agent_md "$dir" fixer    claude-opus-4-8  high
+  write_agent_md "$dir" gate     claude-opus-4-8  xhigh
   write_agent_md "$dir" chore    claude-sonnet-5  low
+  write_agent_md "$dir" fanout   claude-haiku-4-5 ""
   write_agent_md "$dir" verifier claude-fable-5-1 xhigh
+  write_agent_md "$dir" analyst  claude-opus-5    medium
 }
 
 CLEAN_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$CLEAN_AGENTS"
@@ -460,7 +463,7 @@ assert_contains "doctor clean exits 0" "rc=0" "$out"
 brief_out=$(run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$CLEAN_AGENTS'; source '${PLUGIN}'; claude-cast doctor --brief")
 brief_lines=("${(@f)brief_out}")
 assert_eq "doctor --brief prints exactly one line" "1" "${#brief_lines}"
-assert_contains "doctor --brief OK line names agents and chezmoi state" "claude-cast doctor: OK agents=4 chezmoi=skipped" "$brief_out"
+assert_contains "doctor --brief OK line names agents and chezmoi state" "claude-cast doctor: OK agents=7 chezmoi=skipped" "$brief_out"
 
 MISMATCH_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$MISMATCH_AGENTS"
 write_agent_md "$MISMATCH_AGENTS" builder claude-sonnet-5 xhigh   # wrong model
@@ -637,6 +640,47 @@ assert_contains "F13: a WARN still exits 0 (only DRIFT exits 1)" "rc=0" "$brief"
 human=$(run_zsh "PATH=$CZ_BIN; export CZ_SRC='$CZ_REPO' CLAUDE_CAST_AGENTS_DIR='$AGENTS_EMPTY_DIR'; source '${PLUGIN}'; claude-cast doctor")
 assert_contains "F13: doctor names the no-upstream lag warning" "cannot measure lag (no upstream)" "$human"
 rm -rf "$CZ_BIN" "$CZ_REPO"
+
+# ---------------------------------------------------------------------------
+# 31. the gate and fanout roles, and the max5 build row (Opus 4.8 at high).
+# ---------------------------------------------------------------------------
+out=$(run_zsh "source '${PLUGIN}'; (( \$+functions[clgate] )) && print HASGATE; (( \$+functions[clpgate] )) && print HASPGATE; clgate foo")
+assert_contains "clgate launcher exists" "HASGATE" "$out"
+assert_contains "clpgate launcher exists" "HASPGATE" "$out"
+assert_contains "clgate resolves to the max20 gate row (Opus 4.8, xhigh)" $'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>xhigh<\n>foo<' "$out"
+
+out=$(run_zsh "source '${PLUGIN}'; (( \$+functions[clfanout] )) && print HASFANOUT")
+assert_contains "clfanout launcher exists" "HASFANOUT" "$out"
+out=$(run_zsh "source '${PLUGIN}'; clfanout foo")
+assert_eq "clfanout passes --model claude-haiku-4-5 with NO --effort flag" $'>--model<\n>claude-haiku-4-5<\n>foo<' "$out"
+
+out=$(run_zsh "CLAUDE_CAST_PRESET=max5; source '${PLUGIN}'; clbuild foo")
+assert_eq "max5 clbuild resolves to Opus 4.8 at high" $'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>high<\n>foo<' "$out"
+
+# ---------------------------------------------------------------------------
+# 32. a DEFAULT agent mapping whose role is absent from the active preset is
+#     skipped silently (analyst -> review under `pro`, which has no review
+#     row) — not unknown-role, not DRIFT; a USER-set mapping to a role in no
+#     preset stays unknown-role. Run with PATH=$NOCZ_BIN so chezmoi is skipped.
+# ---------------------------------------------------------------------------
+PRO_AGENTS="$(mktemp -d)"
+write_agent_md "$PRO_AGENTS" builder  claude-sonnet-5  medium
+write_agent_md "$PRO_AGENTS" fixer    claude-opus-4-8  high
+write_agent_md "$PRO_AGENTS" gate     claude-opus-4-8  high
+write_agent_md "$PRO_AGENTS" chore    claude-haiku-4-5 ""
+write_agent_md "$PRO_AGENTS" fanout   claude-haiku-4-5 ""
+write_agent_md "$PRO_AGENTS" verifier claude-opus-4-8  high
+write_agent_md "$PRO_AGENTS" analyst  claude-opus-5    medium
+out=$(run_zsh "CLAUDE_CAST_PRESET=pro; PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$PRO_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
+assert_not_contains "a default analyst->review is not unknown-role under pro" "analyst.md UNKNOWN-ROLE" "$out"
+assert_not_contains "a default mapping absent from the active preset is skipped silently (analyst unmentioned)" "analyst.md" "$out"
+assert_contains "doctor is OK under pro with the six pro-mapped agents in sync" "claude-cast doctor: OK" "$out"
+assert_contains "doctor exits 0 under pro (skipping analyst is not drift)" "rc=0" "$out"
+
+out=$(run_zsh "typeset -gA CLAUDE_CAST_AGENTS; CLAUDE_CAST_AGENTS[custom]='nonesuch'; PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$AGENTS_EMPTY_DIR'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
+assert_contains "a user-set mapping to a role in no preset stays unknown-role" "custom.md UNKNOWN-ROLE" "$out"
+assert_contains "an unknown-role user mapping is drift (exit 1)" "rc=1" "$out"
+rm -rf "$PRO_AGENTS"
 
 # ---------------------------------------------------------------------------
 # Summary

@@ -6,7 +6,7 @@
 # external commands — `cat` for the shipped preset/agent heredocs and, in
 # `claude-cast doctor`, `git`/`ps`/`sleep` for the bounded chezmoi-lag fetch.
 
-typeset -g CLAUDE_CAST_VERSION="0.5.0"
+typeset -g CLAUDE_CAST_VERSION="0.6.0"
 
 # ---------------------------------------------------------------------------
 # Config knobs (set these — or CLAUDE_CAST[role]=… entries — BEFORE sourcing
@@ -71,6 +71,7 @@ typeset -g _CLAUDE_CAST_COMPLETION_DONE=0
 typeset -g __cc_fm_value                  # scratch: last frontmatter field read
 typeset -gi _CLAUDE_CAST_AGENT_FILES_SEEN # scratch: mapped agent files that exist
 typeset -ga _CLAUDE_CAST_AGENT_RESULTS    # scratch: per-agent check records
+typeset -gA _CLAUDE_CAST_AGENTS_FROM_DEFAULT # agent -> 1 when filled from the shipped default map (not user-set)
 
 # ---------------------------------------------------------------------------
 # Internals
@@ -81,7 +82,7 @@ typeset -ga _CLAUDE_CAST_AGENT_RESULTS    # scratch: per-agent check records
 # CLAUDE.md. Empty effort field (e.g. "claude-haiku-4-5|") means: pass no
 # --effort flag at all — required for Haiku, which errors on --effort.
 
-# casting:begin (generated from claude-ops casting.json @ e73f480 2026-09-21 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ 1506cde 2026-09-21 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
@@ -89,7 +90,9 @@ driver	claude-opus-4-8[1m]|high
 fable	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-opus-4-8[1m]|xhigh
 fix	claude-opus-4-8[1m]|high
+gate	claude-opus-4-8[1m]|xhigh
 chore	claude-sonnet-5[1m]|low
+fanout	claude-haiku-4-5|
 verify	claude-fable-5-1[1m]|xhigh
 taste	claude-fable-5-1[1m]|high
 orchestrate	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
@@ -103,9 +106,11 @@ _claude_cast_default_table_max5() {
   cat <<'EOF'
 driver	claude-opus-4-8[1m]|high
 fable	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
-build	claude-sonnet-5[1m]|high
+build	claude-opus-4-8[1m]|high
 fix	claude-opus-4-8[1m]|high
+gate	claude-opus-4-8[1m]|xhigh
 chore	claude-haiku-4-5|
+fanout	claude-haiku-4-5|
 verify	claude-fable-5-1[1m]|high
 taste	claude-fable-5-1[1m]|high
 orchestrate	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
@@ -121,7 +126,9 @@ driver	claude-sonnet-5[1m]|high
 fable	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-sonnet-5[1m]|medium
 fix	claude-opus-4-8[1m]|high
+gate	claude-opus-4-8[1m]|high
 chore	claude-haiku-4-5|
+fanout	claude-haiku-4-5|
 verify	claude-opus-4-8[1m]|high
 taste	claude-opus-4-8[1m]|high
 orchestrate	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
@@ -134,8 +141,11 @@ _claude_cast_default_agents() {
   cat <<'EOF'
 builder	build
 fixer	fix
+gate	gate
 chore	chore
+fanout	fanout
 verifier	verify
+analyst	review
 EOF
 }
 # casting:end
@@ -179,6 +189,11 @@ _claude_cast_merge_agent_defaults() {
     [[ -z "$agent" ]] && continue
     if [[ -z "${CLAUDE_CAST_AGENTS[$agent]+x}" ]]; then
       CLAUDE_CAST_AGENTS[$agent]="$role"
+      # Remember this came from the shipped map, not the user: a default whose
+      # role is absent from the active preset (e.g. analyst -> review under
+      # `pro`) is skipped silently by the check, while a user-set mapping to a
+      # nonexistent role stays unknown-role (see _claude_cast_agent_check).
+      _CLAUDE_CAST_AGENTS_FROM_DEFAULT[$agent]=1
     fi
   done < <(_claude_cast_default_agents)
 }
@@ -434,6 +449,11 @@ _claude_cast_agent_check() {
     # An agent mapped to the empty string is a per-agent opt-out: skip silently.
     [[ -z "$role" ]] && continue
     if [[ -z "${CLAUDE_CAST[$role]+x}" ]]; then
+      # A shipped-default mapping whose role isn't in the active preset (e.g.
+      # analyst -> review under `pro`, which has no review row) is skipped
+      # silently — it isn't drift. Only a user-set mapping to a nonexistent
+      # role is flagged unknown-role.
+      (( ${+_CLAUDE_CAST_AGENTS_FROM_DEFAULT[$agent]} )) && continue
       _CLAUDE_CAST_AGENT_RESULTS+=("unknown-role"$'\t'"$agent"$'\t'"mapped role '$role' is not in the casting table")
       continue
     fi

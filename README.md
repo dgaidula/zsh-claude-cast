@@ -25,8 +25,8 @@ update after the last model release.
 ## The casting-table idea
 
 Instead of aliases like `alias cco='claude --model whatever-you-typed-in-2025'`,
-define **roles** — `driver`, `fable`, `build`, `fix`, `chore`, `verify`,
-`taste`, `orchestrate`, `review` — each mapped to a `model|effort|extra-flags` triple in one zsh
+define **roles** — `driver`, `fable`, `build`, `fix`, `gate`, `chore`,
+`fanout`, `verify`, `taste`, `orchestrate`, `review` — each mapped to a `model|effort|extra-flags` triple in one zsh
 associative array, `CLAUDE_CAST`. The plugin *projects* that table into real
 shell functions at load time: `clbuild`, `clverify`, and so on. Change the
 table, `claude-cast reload`, and every launcher it produced is regenerated —
@@ -81,7 +81,9 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `fable` | `claude-opus-4-8[1m]` | `high` | `--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `build` | `claude-opus-4-8[1m]` | `xhigh` | — |
 | `fix` | `claude-opus-4-8[1m]` | `high` | — |
+| `gate` | `claude-opus-4-8[1m]` | `xhigh` | — |
 | `chore` | `claude-sonnet-5[1m]` | `low` | — |
+| `fanout` | `claude-haiku-4-5` | — | — |
 | `verify` | `claude-fable-5-1[1m]` | `xhigh` | — |
 | `taste` | `claude-fable-5-1[1m]` | `high` | — |
 | `orchestrate` | `claude-opus-4-8[1m]` | `high` | `--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
@@ -92,16 +94,18 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 |---|---|---|---|
 | `driver` | `claude-opus-4-8[1m]` `high` | `claude-opus-4-8[1m]` `high` | `claude-sonnet-5[1m]` `high` |
 | `fable` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
-| `build` | `claude-opus-4-8[1m]` `xhigh` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `medium` |
+| `build` | `claude-opus-4-8[1m]` `xhigh` | `claude-opus-4-8[1m]` `high` | `claude-sonnet-5[1m]` `medium` |
 | `fix` | `claude-opus-4-8[1m]` `high` | `claude-opus-4-8[1m]` `high` | `claude-opus-4-8[1m]` `high` |
+| `gate` | `claude-opus-4-8[1m]` `xhigh` | `claude-opus-4-8[1m]` `xhigh` | `claude-opus-4-8[1m]` `high` |
 | `chore` | `claude-sonnet-5[1m]` `low` | `claude-haiku-4-5` | `claude-haiku-4-5` |
+| `fanout` | `claude-haiku-4-5` | `claude-haiku-4-5` | `claude-haiku-4-5` |
 | `verify` | `claude-fable-5-1[1m]` `xhigh` | `claude-fable-5-1[1m]` `high` | `claude-opus-4-8[1m]` `high` |
 | `taste` | `claude-fable-5-1[1m]` `high` | `claude-fable-5-1[1m]` `high` | `claude-opus-4-8[1m]` `high` |
 | `orchestrate` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-4-8[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `review` | `claude-opus-5` `medium` | `claude-opus-5` `medium` | — |
 | `sonnet` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` |
 
-Generated from the author’s scorecard casting source, commit `e73f480`, as of `2026-09-21`.
+Generated from the author’s scorecard casting source, commit `1506cde`, as of `2026-09-21`.
 <!-- casting:end -->
 
 **This default is a snapshot, not a source of truth.** It reflects the
@@ -154,6 +158,13 @@ source /path/to/zsh-claude-cast.plugin.zsh
 ```
 
 An unknown value falls back to `max20`, with a note on stderr.
+
+**Field note (2026-09).** In the author’s use, Sonnet 5 — even at `high` —
+introduced regressions when fixing verified findings and looped on larger
+builds, while staying reliable for chores and documented pipelines. That is
+why `fix` is Opus 4.8 on every preset and why `max5` now builds on Opus 4.8;
+on `pro`, where Opus quota is scarce, `build` stays on Sonnet 5 — keep those
+builds small and fully specified, and never hand it the fix pass.
 
 These three tables are **opinions**, not a spec — a rough plan-ceiling
 matrix of what the maintainer casts on each plan (how much of a model a
@@ -251,8 +262,9 @@ Plus two fixed helpers, not tied to any role:
 | `clr` | `command claude --continue "$@"` |
 
 With the default table and prefix, that’s `cldriver`, `clfable`, `clbuild`,
-`clfix`, `clchore`, `clverify`, `cltaste`, `clorchestrate`, `clreview`,
-`clsonnet` (plus their `clp*` headless twins), `cl`, and `clr`.
+`clfix`, `clgate`, `clchore`, `clfanout`, `clverify`, `cltaste`,
+`clorchestrate`, `clreview`, `clsonnet` (plus their `clp*` headless twins),
+`cl`, and `clr`.
 
 **Collision safety.** If a name the plugin would generate already resolves
 to a command, alias, function, or builtin — from your own `.zshrc`, another
@@ -362,6 +374,13 @@ CLAUDE_CAST_AGENTS[builder]='build'   # your agent file builder.md should match 
 source /path/to/zsh-claude-cast.plugin.zsh
 ```
 
+The shipped default maps seven agent definitions — `builder`→`build`,
+`fixer`→`fix`, `gate`→`gate`, `chore`→`chore`, `fanout`→`fanout`,
+`verifier`→`verify`, and `analyst`→`review`. A default mapping whose role
+isn’t in the active preset — `analyst`→`review` under `pro`, which has no
+`review` row — is skipped silently; a mapping *you* set to a role the active
+preset doesn’t have is still reported as `unknown-role`.
+
 `CLAUDE_CAST_AGENTS_DIR` (default `$HOME/.claude/agents`) is where those
 `<agent>.md` files live. For each mapped agent, the check compares its
 frontmatter `model:`/`effort:` against the role’s table entry (the model with
@@ -395,8 +414,9 @@ prints a one-line notice and behaves as `warn`):
 With no mismatch there’s zero output and no behaviour change.
 
 **If you already keep agent files that intentionally differ.** Upgrading with
-a `builder.md` / `fixer.md` / `chore.md` / `verifier.md` that names other
-models means the default `warn` prints one drift line per launch (it still
+a `builder.md` / `fixer.md` / `gate.md` / `chore.md` / `fanout.md` /
+`verifier.md` / `analyst.md` that names other models means the default
+`warn` prints one drift line per launch (it still
 launches). Three ways to quiet it:
 
 - **Disable the whole check** — set an empty map before sourcing:
