@@ -23,7 +23,15 @@ STUB_DIR="$(mktemp -d)"
 # host and a launcher's guard could fire mid-test. Tests that exercise the
 # check set CLAUDE_CAST_AGENTS_DIR themselves inside the snippet.
 AGENTS_EMPTY_DIR="$(mktemp -d)"
-trap 'rm -rf "$STUB_DIR" "$AGENTS_EMPTY_DIR"' EXIT
+# A minimal bin holding only the externals the plugin needs at load/doctor time
+# and NO chezmoi, so the "chezmoi not on PATH — skipped" assertions hold on any
+# host (F11 — an AlmaLinux box has /usr/bin/chezmoi, which PATH=/usr/bin:/bin
+# would fail to hide). Symlinked, not copied, so it tracks the host's binaries.
+NOCZ_BIN="$(mktemp -d)"
+for _c in cat sleep git; do
+  _src="$(command -v $_c)" && ln -s "$_src" "$NOCZ_BIN/$_c"
+done
+trap 'rm -rf "$STUB_DIR" "$AGENTS_EMPTY_DIR" "$NOCZ_BIN"' EXIT
 
 cat > "$STUB_DIR/claude" <<'STUB'
 #!/usr/bin/env zsh
@@ -410,11 +418,11 @@ fi
 
 # ---------------------------------------------------------------------------
 # 26. `claude-cast doctor`: clean / mismatch / missing / convention-not-used.
-#     Run with PATH=/usr/bin:/bin so `chezmoi` (installed under a Homebrew
-#     prefix, never /usr/bin or /bin) is not found — chezmoi=skipped, so the
-#     result does not depend on the host's dotfiles state — while `cat` (used
-#     by the generated default-table heredocs) still resolves. A temp
-#     CLAUDE_CAST_AGENTS_DIR carries the agent defs under test.
+#     Run with PATH=$NOCZ_BIN (the minimal chezmoi-free bin built above) so
+#     `chezmoi` is not found — chezmoi=skipped, so the result does not depend on
+#     the host's dotfiles state — while `cat` (used by the generated
+#     default-table heredocs) still resolves. A temp CLAUDE_CAST_AGENTS_DIR
+#     carries the agent defs under test.
 # ---------------------------------------------------------------------------
 
 # Writes an agent .md with the given frontmatter (effort omitted when empty).
@@ -443,30 +451,30 @@ make_clean_agents_dir() {
 }
 
 CLEAN_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$CLEAN_AGENTS"
-out=$(run_zsh "PATH=/usr/bin:/bin; export CLAUDE_CAST_AGENTS_DIR='$CLEAN_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
+out=$(run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$CLEAN_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
 assert_contains "doctor reports OK when the agent defs match the table" "claude-cast doctor: OK" "$out"
 assert_contains "doctor clean lists an ok agent" "builder.md ok" "$out"
 assert_contains "doctor skips chezmoi when it is not on PATH" "chezmoi: not on PATH — skipped" "$out"
 assert_contains "doctor clean exits 0" "rc=0" "$out"
 
-brief_out=$(run_zsh "PATH=/usr/bin:/bin; export CLAUDE_CAST_AGENTS_DIR='$CLEAN_AGENTS'; source '${PLUGIN}'; claude-cast doctor --brief")
+brief_out=$(run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$CLEAN_AGENTS'; source '${PLUGIN}'; claude-cast doctor --brief")
 brief_lines=("${(@f)brief_out}")
 assert_eq "doctor --brief prints exactly one line" "1" "${#brief_lines}"
 assert_contains "doctor --brief OK line names agents and chezmoi state" "claude-cast doctor: OK agents=4 chezmoi=skipped" "$brief_out"
 
 MISMATCH_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$MISMATCH_AGENTS"
 write_agent_md "$MISMATCH_AGENTS" builder claude-sonnet-5 xhigh   # wrong model
-out=$(run_zsh "PATH=/usr/bin:/bin; export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_AGENTS'; source '${PLUGIN}'; claude-cast doctor --brief; print rc=\$?")
+out=$(run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_AGENTS'; source '${PLUGIN}'; claude-cast doctor --brief; print rc=\$?")
 assert_contains "doctor reports DRIFT on a model mismatch" "DRIFT" "$out"
 assert_contains "doctor names the mismatched field, have vs want" "builder.md model have=claude-sonnet-5 want=claude-opus-4-8" "$out"
 assert_contains "doctor exits 1 on drift" "rc=1" "$out"
 
 MISSING_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$MISSING_AGENTS"; rm -f "$MISSING_AGENTS/fixer.md"
-out=$(run_zsh "PATH=/usr/bin:/bin; export CLAUDE_CAST_AGENTS_DIR='$MISSING_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
+out=$(run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$MISSING_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
 assert_contains "doctor reports a missing mapped agent as drift when others exist" "fixer.md MISSING" "$out"
 assert_contains "doctor exits 1 when a mapped agent file is missing" "rc=1" "$out"
 
-out=$(run_zsh "PATH=/usr/bin:/bin; export CLAUDE_CAST_AGENTS_DIR='$AGENTS_EMPTY_DIR'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
+out=$(run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$AGENTS_EMPTY_DIR'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
 assert_contains "doctor prints one skipped line when the agent convention is not used" "no mapped agent definitions found — skipped" "$out"
 assert_contains "doctor is clean (exit 0) when the agent convention is not used" "rc=0" "$out"
 
@@ -478,11 +486,19 @@ rm -rf "$CLEAN_AGENTS" "$MISMATCH_AGENTS" "$MISSING_AGENTS"
 # ---------------------------------------------------------------------------
 MISMATCH_LAUNCH="$(mktemp -d)"; write_agent_md "$MISMATCH_LAUNCH" builder claude-sonnet-5 xhigh
 
-out=$(run_zsh "export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_LAUNCH'; source '${PLUGIN}'; clbuild foo; print rc=\$?")
+# ask must be requested explicitly now that the default is warn (F2c).
+out=$(run_zsh "export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_LAUNCH'; CLAUDE_CAST_LAUNCH_CHECK=ask; source '${PLUGIN}'; clbuild foo; print rc=\$?")
 assert_contains "launch check (ask, non-TTY) prints the mismatch" "builder.md model have=claude-sonnet-5 want=claude-opus-4-8" "$out"
 assert_contains "launch check (ask, non-TTY) refuses without a TTY" "refusing to launch" "$out"
 assert_contains "launch check (ask, non-TTY) returns 3" "rc=3" "$out"
 assert_not_contains "launch check (ask, non-TTY) never runs claude" ">foo<" "$out"
+
+# F2c: the default (no CLAUDE_CAST_LAUNCH_CHECK set) is now warn — a mismatch
+# is printed but the launch proceeds, so an upgrade never blocks a launch.
+out=$(run_zsh "export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_LAUNCH'; source '${PLUGIN}'; clbuild foo; print rc=\$?")
+assert_contains "launch check default warns on drift" "agent definition drift before launch" "$out"
+assert_contains "launch check default still launches (warn, not ask)" ">foo<" "$out"
+assert_not_contains "launch check default does not refuse" "refusing to launch" "$out"
 
 out=$(run_zsh "export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_LAUNCH'; CLAUDE_CAST_LAUNCH_CHECK=warn; source '${PLUGIN}'; clbuild foo")
 assert_contains "launch check (warn) still warns" "agent definition drift before launch" "$out"
@@ -496,7 +512,131 @@ out=$(run_zsh "source '${PLUGIN}'; clbuild foo")
 assert_not_contains "launch check with no mismatch is silent" "agent definition drift" "$out"
 assert_contains "launch check with no mismatch runs claude normally" $'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>xhigh<\n>foo<' "$out"
 
+# F16a: an unknown CLAUDE_CAST_LAUNCH_CHECK value names the valid ones and
+# behaves as warn (never silently takes the ask path / refuses in automation).
+out=$(run_zsh "export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_LAUNCH'; CLAUDE_CAST_LAUNCH_CHECK=no; source '${PLUGIN}'; clbuild foo; print rc=\$?")
+assert_contains "F16a: an unknown launch-check value names the valid ones" "unknown CLAUDE_CAST_LAUNCH_CHECK 'no'" "$out"
+assert_contains "F16a: an unknown value behaves as warn (claude runs)" ">foo<" "$out"
+assert_not_contains "F16a: an unknown value never refuses in automation" "refusing to launch" "$out"
+
+# F16a: the value is matched case-insensitively, so OFF disables the check.
+out=$(run_zsh "export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_LAUNCH'; CLAUDE_CAST_LAUNCH_CHECK=OFF; source '${PLUGIN}'; clbuild foo")
+assert_not_contains "F16a: OFF is matched case-insensitively (silent)" "agent definition drift" "$out"
+assert_contains "F16a: OFF still launches" ">foo<" "$out"
+
+# F15: no warn_create_global chatter when the guard first populates its globals
+# (they are pre-declared at file scope). Uses a clean dir so the check runs.
+F15_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$F15_AGENTS"
+out=$(run_zsh "export CLAUDE_CAST_AGENTS_DIR='$F15_AGENTS'; source '${PLUGIN}'; setopt warn_create_global; clbuild foo")
+assert_not_contains "F15: no 'created globally' warnings when the guard first runs" "created globally" "$out"
+assert_contains "F15: the launcher still runs after the guard's clean check" ">foo<" "$out"
+rm -rf "$F15_AGENTS"
+
 rm -rf "$MISMATCH_LAUNCH"
+
+# ---------------------------------------------------------------------------
+# 28. CLAUDE_CAST_AGENTS shapes: plain-array load (F1), explicit empty-map
+#     disable (F2a), per-agent opt-out (F2b). A drifted builder.md would fire
+#     the guard / doctor unless the agent is disabled or opted out.
+# ---------------------------------------------------------------------------
+DRIFT_AGENTS="$(mktemp -d)"; write_agent_md "$DRIFT_AGENTS" builder claude-sonnet-5 xhigh
+
+# F1: a plain (non-association) empty array set before sourcing must not abort
+# the load with "invalid subscript range" — launchers exist, no check runs.
+out=$(run_zsh "CLAUDE_CAST_AGENTS=(); export CLAUDE_CAST_AGENTS_DIR='$DRIFT_AGENTS'; source '${PLUGIN}'; (( \$+functions[clbuild] )) && print HASFUNC; clbuild foo; print rc=\$?")
+assert_contains "F1: a plain-array CLAUDE_CAST_AGENTS=() still defines launchers" "HASFUNC" "$out"
+assert_not_contains "F1: a plain-array empty map does not abort load" "invalid subscript" "$out"
+assert_contains "F1: a plain-array empty map runs no agent check (claude runs)" ">foo<" "$out"
+
+# F2a: an explicitly empty association disables the check — guard silent and
+# launches; doctor prints the (now reachable) skipped line and exits 0.
+out=$(run_zsh "typeset -gA CLAUDE_CAST_AGENTS; CLAUDE_CAST_AGENTS=(); export CLAUDE_CAST_AGENTS_DIR='$DRIFT_AGENTS'; source '${PLUGIN}'; clbuild foo")
+assert_not_contains "F2a: an empty map keeps the launch guard silent" "agent definition drift" "$out"
+assert_contains "F2a: an empty map lets the launch proceed" ">foo<" "$out"
+out=$(run_zsh "typeset -gA CLAUDE_CAST_AGENTS; CLAUDE_CAST_AGENTS=(); PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$DRIFT_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
+assert_contains "F2a: doctor prints the skipped line for an empty map" "no agent map configured — skipped" "$out"
+assert_contains "F2a: doctor exits 0 for an empty map" "rc=0" "$out"
+
+# F2b: one agent mapped to '' opts that agent out silently; the rest still come
+# from the defaults and are still checked. Clean dir + a drifted builder.md.
+OPTOUT_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$OPTOUT_AGENTS"
+write_agent_md "$OPTOUT_AGENTS" builder claude-sonnet-5 xhigh   # drift builder.md
+out=$(run_zsh "typeset -gA CLAUDE_CAST_AGENTS; CLAUDE_CAST_AGENTS[builder]=''; export CLAUDE_CAST_AGENTS_DIR='$OPTOUT_AGENTS'; source '${PLUGIN}'; clbuild foo")
+assert_contains "F2b: an agent mapped to '' is skipped by the guard (claude runs)" ">foo<" "$out"
+assert_not_contains "F2b: the guard does not flag the opted-out agent" "builder.md" "$out"
+out=$(run_zsh "typeset -gA CLAUDE_CAST_AGENTS; CLAUDE_CAST_AGENTS[builder]=''; PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$OPTOUT_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
+assert_not_contains "F2b: doctor ignores an opted-out agent even when its file drifts" "builder.md" "$out"
+assert_contains "F2b: defaults still fill and check the other agents" "fixer.md ok" "$out"
+assert_contains "F2b: doctor is clean when only the opted-out agent drifts" "rc=0" "$out"
+rm -rf "$DRIFT_AGENTS" "$OPTOUT_AGENTS"
+
+# ---------------------------------------------------------------------------
+# 29. Frontmatter parser (F5): tolerate real-world YAML instead of
+#     false-mismatching it, while still flagging genuinely different values.
+#     Table-driven via doctor over a single mapped agent (builder).
+# ---------------------------------------------------------------------------
+FM_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$FM_AGENTS"
+B="$FM_AGENTS/builder.md"
+fm_doctor() { run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$FM_AGENTS'; source '${PLUGIN}'; claude-cast doctor"; }
+
+# Valid YAML the parser must ACCEPT (builder.md ok):
+printf -- '---\r\nname: builder\r\ndescription: x\r\nmodel: claude-opus-4-8\r\neffort: xhigh\r\n---\r\n' > "$B"
+assert_contains "F5: CRLF line endings accepted" "builder.md ok" "$(fm_doctor)"
+printf -- '---\nname: builder\nmodel: "claude-opus-4-8"\neffort: "xhigh"\n---\n' > "$B"
+assert_contains "F5: double-quoted values accepted" "builder.md ok" "$(fm_doctor)"
+printf -- "---\nname: builder\nmodel: 'claude-opus-4-8'\neffort: 'xhigh'\n---\n" > "$B"
+assert_contains "F5: single-quoted values accepted" "builder.md ok" "$(fm_doctor)"
+printf -- '---\nname: builder\nmodel: claude-opus-4-8 # pinned\neffort: xhigh # why\n---\n' > "$B"
+assert_contains "F5: inline # comment stripped from values" "builder.md ok" "$(fm_doctor)"
+printf -- '--- \nname: builder\nmodel: claude-opus-4-8\neffort: xhigh\n--- \n' > "$B"
+assert_contains "F5: a fence with trailing whitespace accepted" "builder.md ok" "$(fm_doctor)"
+printf -- '\xef\xbb\xbf---\nname: builder\nmodel: claude-opus-4-8\neffort: xhigh\n---\n' > "$B"
+assert_contains "F5: a leading UTF-8 BOM accepted" "builder.md ok" "$(fm_doctor)"
+printf -- '---\nname: builder\nmodel: claude-opus-4-8\neffort: xhigh' > "$B"
+assert_contains "F5: a final line with no trailing newline accepted" "builder.md ok" "$(fm_doctor)"
+printf -- '---\nname: builder\n# model: claude-sonnet-5\nmodel: claude-opus-4-8\neffort: xhigh\n---\n' > "$B"
+assert_contains "F5: a '# model:' comment line is not read as the value" "builder.md ok" "$(fm_doctor)"
+
+# Genuinely different values must STILL mismatch (no over-normalization):
+printf -- '---\nname: builder\neffort: xhigh\n---\nmodel: claude-opus-4-8\n' > "$B"
+assert_contains "F5: model only in the body is a real mismatch" "builder.md MISMATCH" "$(fm_doctor)"
+printf -- '---\nname: builder\nmodel: claude-opus-4-8[1m]\neffort: xhigh\n---\n' > "$B"
+assert_contains "F5: a [1m] suffix in the file is a real mismatch" "builder.md MISMATCH" "$(fm_doctor)"
+
+# An unreadable file yields one clean UNREADABLE result, no raw zsh error.
+printf -- '---\nname: builder\nmodel: claude-opus-4-8\neffort: xhigh\n---\n' > "$B"; chmod 000 "$B"
+if [[ -r "$B" ]]; then
+  print -u2 -- "  SKIP - F5 unreadable file (readable despite chmod 000, likely running as root)"
+else
+  out="$(fm_doctor)"
+  assert_contains "F5: an unreadable file yields a clean UNREADABLE result" "builder.md UNREADABLE" "$out"
+  assert_not_contains "F5: an unreadable file prints no raw zsh error" "permission denied" "$out"
+fi
+chmod 644 "$B"
+rm -rf "$FM_AGENTS"
+
+# ---------------------------------------------------------------------------
+# 30. doctor lag (F13): a chezmoi source with no upstream is a WARN, not OK —
+#     reported, but exit 0 (only DRIFT exits 1). Uses a chezmoi stub + a fresh
+#     git repo (a branch with no upstream) on a curated PATH.
+# ---------------------------------------------------------------------------
+CZ_BIN="$(mktemp -d)"
+for _c in cat sleep git; do _src="$(command -v $_c)" && ln -s "$_src" "$CZ_BIN/$_c"; done
+cat > "$CZ_BIN/chezmoi" <<'CZSTUB'
+#!/bin/sh
+[ "$1" = source-path ] && { printf '%s\n' "$CZ_SRC"; exit 0; }
+exit 1
+CZSTUB
+chmod +x "$CZ_BIN/chezmoi"
+CZ_REPO="$(mktemp -d)"
+git -C "$CZ_REPO" init -q >/dev/null 2>&1
+git -C "$CZ_REPO" -c user.email=t@t.t -c user.name=t commit -q --allow-empty -m init >/dev/null 2>&1
+brief=$(run_zsh "PATH=$CZ_BIN; export CZ_SRC='$CZ_REPO' CLAUDE_CAST_AGENTS_DIR='$AGENTS_EMPTY_DIR'; source '${PLUGIN}'; claude-cast doctor --brief; print rc=\$?")
+assert_contains "F13: doctor --brief is WARN when lag can't be measured" "claude-cast doctor: WARN" "$brief"
+assert_contains "F13: a WARN still exits 0 (only DRIFT exits 1)" "rc=0" "$brief"
+human=$(run_zsh "PATH=$CZ_BIN; export CZ_SRC='$CZ_REPO' CLAUDE_CAST_AGENTS_DIR='$AGENTS_EMPTY_DIR'; source '${PLUGIN}'; claude-cast doctor")
+assert_contains "F13: doctor names the no-upstream lag warning" "cannot measure lag (no upstream)" "$human"
+rm -rf "$CZ_BIN" "$CZ_REPO"
 
 # ---------------------------------------------------------------------------
 # Summary

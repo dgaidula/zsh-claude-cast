@@ -316,8 +316,11 @@ claude-cast version
   check](#agent-definitions-and-the-launch-check)), and, if `chezmoi` is on
   `PATH`, reports how many commits its source is behind upstream (using the
   refs already fetched — `--fetch` refreshes them first, bounded so a dead
-  network can’t hang it). Exit 0 clean, 1 on any drift. `--brief` collapses
-  it to a single line, e.g. `claude-cast doctor: OK agents=4 chezmoi=behind:0`.
+  network can’t hang it). Exit 0 when clean, 1 on drift; a condition it can’t
+  evaluate — a lag it can’t measure because there’s no upstream tracking
+  branch, an agent file it can’t read — is a `WARN` that still exits 0.
+  `--brief` collapses it to a single line, e.g.
+  `claude-cast doctor: OK agents=4 chezmoi=behind:0`.
 - **`reload`** — regenerates launchers from the current `CLAUDE_CAST`
   contents; use after editing the array directly (`set`/`unset` already call
   this for you).
@@ -363,25 +366,48 @@ source /path/to/zsh-claude-cast.plugin.zsh
 `<agent>.md` files live. For each mapped agent, the check compares its
 frontmatter `model:`/`effort:` against the role’s table entry (the model with
 any trailing `[...]` suffix stripped, since frontmatter doesn’t take it) and
-reports `ok`, `mismatch` (which field, have vs want), `missing` (no file), or
-`unknown-role` (mapped to a role not in the table). It’s pure zsh file reads —
-no subprocess — so it’s cheap enough to run at launch. Run it on demand with
+reports `ok`, `mismatch` (which field, have vs want), `missing` (no file),
+`unreadable` (exists but can’t be read), or `unknown-role` (mapped to a role
+not in the table). The parser is forgiving of real YAML — CRLF line endings, a
+leading UTF-8 BOM, trailing whitespace on a fence, quoted values, and a
+trailing `# comment` are all tolerated — so only a genuinely different value
+trips it. It’s pure zsh file reads — no subprocess — so it’s cheap enough to
+run at launch. Run it on demand with
 [`claude-cast doctor`](#claude-cast-subcommands).
 
 **The launch check.** Every generated launcher runs that check — existing
 files only, mismatch only — right before `command claude`, governed by
-`CLAUDE_CAST_LAUNCH_CHECK`:
+`CLAUDE_CAST_LAUNCH_CHECK` (matched case-insensitively; an unrecognised value
+prints a one-line notice and behaves as `warn`):
 
-- **`ask`** (default) — on a mismatch, print it and a hint to stderr, then
-  prompt `launch anyway? [y/N]` if stdin and stderr are both TTYs (default
-  No). If there’s no TTY to confirm (a script, a headless `clp<role>`), it
-  refuses without prompting and returns 3, so a drifted definition can’t
-  silently launch the wrong model in automation.
-- **`warn`** — print the mismatch, then launch anyway.
+- **`warn`** (default) — print the mismatch and a hint to stderr, then launch
+  anyway. The default is deliberately non-blocking: an upgrade can’t stop you
+  from launching Claude.
+- **`ask`** — on a mismatch, print it and a hint to stderr, then prompt
+  `launch anyway? [y/N]` if stdin and stderr are both TTYs (default No). If
+  there’s no TTY to confirm (a script, a headless `clp<role>`), it refuses
+  without prompting and returns 3, so a drifted definition can’t silently
+  launch the wrong model in automation. Recommended when your agent files are
+  generated from the same casting table (so any mismatch is real drift worth
+  stopping for).
 - **`off`** — skip the check entirely.
 
-With no mismatch there’s zero output and no behaviour change, so if you don’t
-keep agent definitions (or they all match) you’ll never notice it’s there.
+With no mismatch there’s zero output and no behaviour change.
+
+**If you already keep agent files that intentionally differ.** Upgrading with
+a `builder.md` / `fixer.md` / `chore.md` / `verifier.md` that names other
+models means the default `warn` prints one drift line per launch (it still
+launches). Three ways to quiet it:
+
+- **Disable the whole check** — set an empty map before sourcing:
+  `typeset -gA CLAUDE_CAST_AGENTS; CLAUDE_CAST_AGENTS=()` (then `source …`).
+  `claude-cast doctor` reports `agents=0`, skipped.
+- **Opt one agent out** — map it to the empty string:
+  `CLAUDE_CAST_AGENTS[builder]=''` before sourcing. That agent is skipped
+  silently by both the launch check and `doctor`; the rest still come from the
+  defaults and are still checked.
+- **Turn the launch check off** — `export CLAUDE_CAST_LAUNCH_CHECK=off`
+  (leaves `claude-cast doctor` available for an on-demand check).
 
 ## Per-machine casting
 

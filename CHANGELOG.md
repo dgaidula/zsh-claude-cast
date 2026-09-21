@@ -17,16 +17,26 @@
   overridable like `CLAUDE_CAST`) and `CLAUDE_CAST_AGENTS_DIR` (default
   `$HOME/.claude/agents`). The plugin can check each agent file’s
   `model:`/`effort:` frontmatter against its role’s table entry — pure zsh
-  file reads, no subprocess. `claude-cast export` now carries a top-level
+  file reads, no subprocess, forgiving of real YAML (CRLF, a leading BOM,
+  fence/trailing whitespace, quoted values, a `# comment`). An empty map set
+  before sourcing disables the check entirely; an agent mapped to the empty
+  string (`CLAUDE_CAST_AGENTS[builder]=''`) opts that one agent out. A plain
+  array or scalar set before sourcing is re-typeset to an association rather
+  than aborting the load. `claude-cast export` now carries a top-level
   `"agents"` map.
 - **`claude-cast doctor [--fetch] [--brief]`.** Runs `lint`, the
   agent-definition check, and (when `chezmoi` is on `PATH`) a source-behind
-  count; exit 0 clean, 1 on drift. `--brief` is one line.
+  count; exit 0 clean, 1 on drift. A condition it can’t evaluate — lag with no
+  upstream tracking branch, an unreadable agent file — is a `WARN` that still
+  exits 0. `--brief` is one line. The bounded `--fetch` reaps its whole
+  process tree (no orphaned `git-remote-https`) and no longer leaks
+  job-control chatter.
 - **Launch-time agent check.** Every launcher runs the agent check (existing
   files only, mismatch only) before `command claude`, governed by
-  `CLAUDE_CAST_LAUNCH_CHECK`: `ask` (default — prompt on a TTY, refuse with
-  code 3 when there’s no TTY to confirm), `warn` (print, continue), or `off`.
-  No mismatch means zero output and no behaviour change.
+  `CLAUDE_CAST_LAUNCH_CHECK` (case-insensitive; an unknown value warns): `warn`
+  (default — print, continue, so an upgrade never blocks a launch), `ask`
+  (prompt on a TTY, refuse with code 3 when there’s no TTY to confirm), or
+  `off`. No mismatch means zero output and no behaviour change.
 
 ## 0.4.0 - 2026-09-03
 
