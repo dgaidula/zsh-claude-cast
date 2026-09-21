@@ -81,7 +81,7 @@ typeset -ga _CLAUDE_CAST_AGENT_RESULTS    # scratch: per-agent check records
 # CLAUDE.md. Empty effort field (e.g. "claude-haiku-4-5|") means: pass no
 # --effort flag at all — required for Haiku, which errors on --effort.
 
-# casting:begin (generated from claude-ops casting.json @ 174d594 2026-09-21 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ e73f480 2026-09-21 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
