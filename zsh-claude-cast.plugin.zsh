@@ -82,21 +82,21 @@ typeset -gA _CLAUDE_CAST_AGENTS_FROM_DEFAULT # agent -> 1 when filled from the s
 # CLAUDE.md. Empty effort field (e.g. "claude-haiku-4-5|") means: pass no
 # --effort flag at all — required for Haiku, which errors on --effort.
 
-# casting:begin (generated from claude-ops casting.json @ 1506cde 2026-09-21 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ 7d3bd05 2026-09-23 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
-driver	claude-opus-4-8[1m]|high
-fable	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
-build	claude-opus-4-8[1m]|xhigh
-fix	claude-opus-4-8[1m]|high
-gate	claude-opus-4-8[1m]|xhigh
+driver	claude-opus-5-5[1m]|high
+fable	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+build	claude-opus-5-5[1m]|xhigh
+fix	claude-opus-5-5[1m]|high
+gate	claude-opus-5-5[1m]|xhigh
 chore	claude-sonnet-5[1m]|low
 fanout	claude-haiku-4-5|
 verify	claude-fable-5-1[1m]|xhigh
-taste	claude-fable-5-1[1m]|high
-orchestrate	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
-review	claude-opus-5|medium
+taste	claude-opus-5-5[1m]|high
+orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+review	claude-opus-5-5[1m]|medium
 sonnet	claude-sonnet-5[1m]|high
 EOF
 }
@@ -104,17 +104,17 @@ EOF
 # Claude Max 5x — Fable rationed, Opus fronts driver/orchestrate.
 _claude_cast_default_table_max5() {
   cat <<'EOF'
-driver	claude-opus-4-8[1m]|high
-fable	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
-build	claude-opus-4-8[1m]|high
-fix	claude-opus-4-8[1m]|high
-gate	claude-opus-4-8[1m]|xhigh
+driver	claude-opus-5-5[1m]|high
+fable	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+build	claude-opus-5-5[1m]|high
+fix	claude-opus-5-5[1m]|high
+gate	claude-opus-5-5[1m]|xhigh
 chore	claude-haiku-4-5|
 fanout	claude-haiku-4-5|
 verify	claude-fable-5-1[1m]|high
-taste	claude-fable-5-1[1m]|high
-orchestrate	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
-review	claude-opus-5|medium
+taste	claude-opus-5-5[1m]|high
+orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+review	claude-opus-5-5[1m]|medium
 sonnet	claude-sonnet-5[1m]|high
 EOF
 }
@@ -123,15 +123,15 @@ EOF
 _claude_cast_default_table_pro() {
   cat <<'EOF'
 driver	claude-sonnet-5[1m]|high
-fable	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+fable	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-sonnet-5[1m]|medium
-fix	claude-opus-4-8[1m]|high
-gate	claude-opus-4-8[1m]|high
+fix	claude-opus-5-5[1m]|high
+gate	claude-opus-5-5[1m]|high
 chore	claude-haiku-4-5|
 fanout	claude-haiku-4-5|
-verify	claude-opus-4-8[1m]|high
-taste	claude-opus-4-8[1m]|high
-orchestrate	claude-opus-4-8[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+verify	claude-opus-5-5[1m]|high
+taste	claude-opus-5-5[1m]|high
+orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 sonnet	claude-sonnet-5[1m]|high
 EOF
 }

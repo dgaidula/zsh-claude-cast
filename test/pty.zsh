@@ -71,11 +71,11 @@ fi
 PTY_TIMEOUT=8   # seconds; the ceiling on every wait, so a hang fails a case
 
 # Writes a builder.md whose model/effort either match the max20 `build` row
-# (claude-opus-4-8 / xhigh) or deliberately disagree with it.
+# (claude-opus-5-5 / xhigh) or deliberately disagree with it.
 _pty_write_builder() {
   local dir=$1 kind=$2 model effort
   if [[ $kind == mismatch ]]; then model=claude-sonnet-5; effort=low
-  else                              model=claude-opus-4-8;  effort=xhigh; fi
+  else                              model=claude-opus-5-5;  effort=xhigh; fi
   {
     print -- '---'; print -- 'name: builder'; print -- 'description: fixture'
     print -- "model: $model"; print -- "effort: $effort"

@@ -115,14 +115,14 @@ fi
 # 2. clbuild foo --bar -> exactly --model <model> --effort xhigh foo --bar
 # ---------------------------------------------------------------------------
 out=$(run_zsh "source '${PLUGIN}'; clbuild foo --bar")
-expected=$'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>xhigh<\n>foo<\n>--bar<'
+expected=$'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>xhigh<\n>foo<\n>--bar<'
 assert_eq "clbuild foo --bar produces exactly --model <model> --effort xhigh foo --bar" "$expected" "$out"
 
 # ---------------------------------------------------------------------------
 # 3. clpbuild adds the headless flags
 # ---------------------------------------------------------------------------
 out=$(run_zsh "source '${PLUGIN}'; clpbuild")
-expected=$'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>xhigh<\n>-p<\n>--output-format<\n>json<\n>--setting-sources<\n><'
+expected=$'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>xhigh<\n>-p<\n>--output-format<\n>json<\n>--setting-sources<\n><'
 assert_eq "clpbuild adds the default headless flags" "$expected" "$out"
 
 # ---------------------------------------------------------------------------
@@ -157,7 +157,7 @@ assert_contains "claude-cast unset removes the launcher" "GONE" "$out"
 # ---------------------------------------------------------------------------
 out_role=$(run_zsh "source '${PLUGIN}'; claude-cast which build")
 out_launcher=$(run_zsh "source '${PLUGIN}'; claude-cast which clbuild")
-expected="command claude --model claude-opus-4-8[1m] --effort xhigh"
+expected="command claude --model claude-opus-5-5[1m] --effort xhigh"
 assert_eq "which build" "$expected" "$out_role"
 assert_eq "which clbuild" "$expected" "$out_launcher"
 
@@ -230,7 +230,7 @@ out=$(run_zsh "
   source '${PLUGIN}'
   clbuild
 ")
-expected=$'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>xhigh<'
+expected=$'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>xhigh<'
 assert_eq "CLAUDE_CAST_FORCE=1 overrides a pre-existing clbuild function" "$expected" "$out"
 
 # ---------------------------------------------------------------------------
@@ -269,7 +269,7 @@ assert_eq "max5's clchore argv is --model claude-haiku-4-5 with no --effort" "$e
 # ---------------------------------------------------------------------------
 out=$(run_zsh "CLAUDE_CAST_PRESET=bogus; source '${PLUGIN}'; clbuild")
 assert_contains "an unknown preset prints a fallback stderr message" "unknown preset 'bogus'" "$out"
-assert_contains "an unknown preset falls back to the max20 build row" $'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>xhigh<' "$out"
+assert_contains "an unknown preset falls back to the max20 build row" $'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>xhigh<' "$out"
 
 # ---------------------------------------------------------------------------
 # 15. a user override on top of a preset wins, and is reported in `list`
@@ -374,13 +374,13 @@ assert_not_contains "the shipped fable row's which output carries no literal ~" 
 out=$(run_zsh "source '${PLUGIN}'; (( \$+functions[clfix] )) && print HASFIX; (( \$+functions[clpfix] )) && print HASPFIX; clfix foo")
 assert_contains "clfix launcher exists" "HASFIX" "$out"
 assert_contains "clpfix launcher exists" "HASPFIX" "$out"
-assert_contains "clfix resolves to the max20 fix row (Opus 4.8, high)" $'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>high<\n>foo<' "$out"
+assert_contains "clfix resolves to the max20 fix row (Opus 4.8, high)" $'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>high<\n>foo<' "$out"
 
 # ---------------------------------------------------------------------------
 # 24. `claude-cast argv <role>` prints resolved launch args, one token per line
 # ---------------------------------------------------------------------------
 out=$(run_zsh "source '${PLUGIN}'; claude-cast argv build")
-assert_eq "argv build prints --model/--effort tokens, one per line, no 'claude' word" $'--model\nclaude-opus-4-8[1m]\n--effort\nxhigh' "$out"
+assert_eq "argv build prints --model/--effort tokens, one per line, no 'claude' word" $'--model\nclaude-opus-5-5[1m]\n--effort\nxhigh' "$out"
 
 out=$(run_zsh "source '${PLUGIN}'; claude-cast argv fable")
 assert_contains "argv fable expands a leading ~ in the extra flag to \$HOME" $'--append-system-prompt-file\n'"${HOME}/.claude/skills/fable-mode/SKILL.md" "$out"
@@ -404,7 +404,7 @@ if command -v node >/dev/null 2>&1; then
     if (typeof d.agents !== "object" || d.agents === null) { console.error("no agents object"); process.exit(1); }
     if (d.agents.builder !== "build") { console.error("agents.builder != build"); process.exit(1); }
     if (d.agents.fixer !== "fix") { console.error("agents.fixer != fix"); process.exit(1); }
-    if (!d.fix || d.fix.model !== "claude-opus-4-8[1m]") { console.error("fix role missing/wrong"); process.exit(1); }
+    if (!d.fix || d.fix.model !== "claude-opus-5-5[1m]") { console.error("fix role missing/wrong"); process.exit(1); }
     if (typeof d.preset !== "string") { console.error("preset key lost"); process.exit(1); }
     process.exit(0);
   ' "${STUB_DIR}/export-agents.json"; then
@@ -444,13 +444,13 @@ write_agent_md() {
 # build/fix/gate/chore/fanout/verify/review rows change, update these seven.
 make_clean_agents_dir() {
   local dir=$1
-  write_agent_md "$dir" builder  claude-opus-4-8  xhigh
-  write_agent_md "$dir" fixer    claude-opus-4-8  high
-  write_agent_md "$dir" gate     claude-opus-4-8  xhigh
+  write_agent_md "$dir" builder  claude-opus-5-5  xhigh
+  write_agent_md "$dir" fixer    claude-opus-5-5  high
+  write_agent_md "$dir" gate     claude-opus-5-5  xhigh
   write_agent_md "$dir" chore    claude-sonnet-5  low
   write_agent_md "$dir" fanout   claude-haiku-4-5 ""
   write_agent_md "$dir" verifier claude-fable-5-1 xhigh
-  write_agent_md "$dir" analyst  claude-opus-5    medium
+  write_agent_md "$dir" analyst  claude-opus-5-5    medium
 }
 
 CLEAN_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$CLEAN_AGENTS"
@@ -469,7 +469,7 @@ MISMATCH_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$MISMATCH_AGENTS"
 write_agent_md "$MISMATCH_AGENTS" builder claude-sonnet-5 xhigh   # wrong model
 out=$(run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_AGENTS'; source '${PLUGIN}'; claude-cast doctor --brief; print rc=\$?")
 assert_contains "doctor reports DRIFT on a model mismatch" "DRIFT" "$out"
-assert_contains "doctor names the mismatched field, have vs want" "builder.md model have=claude-sonnet-5 want=claude-opus-4-8" "$out"
+assert_contains "doctor names the mismatched field, have vs want" "builder.md model have=claude-sonnet-5 want=claude-opus-5-5" "$out"
 assert_contains "doctor exits 1 on drift" "rc=1" "$out"
 
 MISSING_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$MISSING_AGENTS"; rm -f "$MISSING_AGENTS/fixer.md"
@@ -491,7 +491,7 @@ MISMATCH_LAUNCH="$(mktemp -d)"; write_agent_md "$MISMATCH_LAUNCH" builder claude
 
 # ask must be requested explicitly now that the default is warn (F2c).
 out=$(run_zsh "export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_LAUNCH'; CLAUDE_CAST_LAUNCH_CHECK=ask; source '${PLUGIN}'; clbuild foo; print rc=\$?")
-assert_contains "launch check (ask, non-TTY) prints the mismatch" "builder.md model have=claude-sonnet-5 want=claude-opus-4-8" "$out"
+assert_contains "launch check (ask, non-TTY) prints the mismatch" "builder.md model have=claude-sonnet-5 want=claude-opus-5-5" "$out"
 assert_contains "launch check (ask, non-TTY) refuses without a TTY" "refusing to launch" "$out"
 assert_contains "launch check (ask, non-TTY) returns 3" "rc=3" "$out"
 assert_not_contains "launch check (ask, non-TTY) never runs claude" ">foo<" "$out"
@@ -513,7 +513,7 @@ assert_contains "launch check (off) runs claude" ">foo<" "$out"
 
 out=$(run_zsh "source '${PLUGIN}'; clbuild foo")
 assert_not_contains "launch check with no mismatch is silent" "agent definition drift" "$out"
-assert_contains "launch check with no mismatch runs claude normally" $'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>xhigh<\n>foo<' "$out"
+assert_contains "launch check with no mismatch runs claude normally" $'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>xhigh<\n>foo<' "$out"
 
 # F16a: an unknown CLAUDE_CAST_LAUNCH_CHECK value names the valid ones and
 # behaves as warn (never silently takes the ask path / refuses in automation).
@@ -583,31 +583,31 @@ B="$FM_AGENTS/builder.md"
 fm_doctor() { run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$FM_AGENTS'; source '${PLUGIN}'; claude-cast doctor"; }
 
 # Valid YAML the parser must ACCEPT (builder.md ok):
-printf -- '---\r\nname: builder\r\ndescription: x\r\nmodel: claude-opus-4-8\r\neffort: xhigh\r\n---\r\n' > "$B"
+printf -- '---\r\nname: builder\r\ndescription: x\r\nmodel: claude-opus-5-5\r\neffort: xhigh\r\n---\r\n' > "$B"
 assert_contains "F5: CRLF line endings accepted" "builder.md ok" "$(fm_doctor)"
-printf -- '---\nname: builder\nmodel: "claude-opus-4-8"\neffort: "xhigh"\n---\n' > "$B"
+printf -- '---\nname: builder\nmodel: "claude-opus-5-5"\neffort: "xhigh"\n---\n' > "$B"
 assert_contains "F5: double-quoted values accepted" "builder.md ok" "$(fm_doctor)"
-printf -- "---\nname: builder\nmodel: 'claude-opus-4-8'\neffort: 'xhigh'\n---\n" > "$B"
+printf -- "---\nname: builder\nmodel: 'claude-opus-5-5'\neffort: 'xhigh'\n---\n" > "$B"
 assert_contains "F5: single-quoted values accepted" "builder.md ok" "$(fm_doctor)"
-printf -- '---\nname: builder\nmodel: claude-opus-4-8 # pinned\neffort: xhigh # why\n---\n' > "$B"
+printf -- '---\nname: builder\nmodel: claude-opus-5-5 # pinned\neffort: xhigh # why\n---\n' > "$B"
 assert_contains "F5: inline # comment stripped from values" "builder.md ok" "$(fm_doctor)"
-printf -- '--- \nname: builder\nmodel: claude-opus-4-8\neffort: xhigh\n--- \n' > "$B"
+printf -- '--- \nname: builder\nmodel: claude-opus-5-5\neffort: xhigh\n--- \n' > "$B"
 assert_contains "F5: a fence with trailing whitespace accepted" "builder.md ok" "$(fm_doctor)"
-printf -- '\xef\xbb\xbf---\nname: builder\nmodel: claude-opus-4-8\neffort: xhigh\n---\n' > "$B"
+printf -- '\xef\xbb\xbf---\nname: builder\nmodel: claude-opus-5-5\neffort: xhigh\n---\n' > "$B"
 assert_contains "F5: a leading UTF-8 BOM accepted" "builder.md ok" "$(fm_doctor)"
-printf -- '---\nname: builder\nmodel: claude-opus-4-8\neffort: xhigh' > "$B"
+printf -- '---\nname: builder\nmodel: claude-opus-5-5\neffort: xhigh' > "$B"
 assert_contains "F5: a final line with no trailing newline accepted" "builder.md ok" "$(fm_doctor)"
-printf -- '---\nname: builder\n# model: claude-sonnet-5\nmodel: claude-opus-4-8\neffort: xhigh\n---\n' > "$B"
+printf -- '---\nname: builder\n# model: claude-sonnet-5\nmodel: claude-opus-5-5\neffort: xhigh\n---\n' > "$B"
 assert_contains "F5: a '# model:' comment line is not read as the value" "builder.md ok" "$(fm_doctor)"
 
 # Genuinely different values must STILL mismatch (no over-normalization):
-printf -- '---\nname: builder\neffort: xhigh\n---\nmodel: claude-opus-4-8\n' > "$B"
+printf -- '---\nname: builder\neffort: xhigh\n---\nmodel: claude-opus-5-5\n' > "$B"
 assert_contains "F5: model only in the body is a real mismatch" "builder.md MISMATCH" "$(fm_doctor)"
-printf -- '---\nname: builder\nmodel: claude-opus-4-8[1m]\neffort: xhigh\n---\n' > "$B"
+printf -- '---\nname: builder\nmodel: claude-opus-5-5[1m]\neffort: xhigh\n---\n' > "$B"
 assert_contains "F5: a [1m] suffix in the file is a real mismatch" "builder.md MISMATCH" "$(fm_doctor)"
 
 # An unreadable file yields one clean UNREADABLE result, no raw zsh error.
-printf -- '---\nname: builder\nmodel: claude-opus-4-8\neffort: xhigh\n---\n' > "$B"; chmod 000 "$B"
+printf -- '---\nname: builder\nmodel: claude-opus-5-5\neffort: xhigh\n---\n' > "$B"; chmod 000 "$B"
 if [[ -r "$B" ]]; then
   print -u2 -- "  SKIP - F5 unreadable file (readable despite chmod 000, likely running as root)"
 else
@@ -647,7 +647,7 @@ rm -rf "$CZ_BIN" "$CZ_REPO"
 out=$(run_zsh "source '${PLUGIN}'; (( \$+functions[clgate] )) && print HASGATE; (( \$+functions[clpgate] )) && print HASPGATE; clgate foo")
 assert_contains "clgate launcher exists" "HASGATE" "$out"
 assert_contains "clpgate launcher exists" "HASPGATE" "$out"
-assert_contains "clgate resolves to the max20 gate row (Opus 4.8, xhigh)" $'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>xhigh<\n>foo<' "$out"
+assert_contains "clgate resolves to the max20 gate row (Opus 4.8, xhigh)" $'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>xhigh<\n>foo<' "$out"
 
 out=$(run_zsh "source '${PLUGIN}'; (( \$+functions[clfanout] )) && print HASFANOUT")
 assert_contains "clfanout launcher exists" "HASFANOUT" "$out"
@@ -655,7 +655,7 @@ out=$(run_zsh "source '${PLUGIN}'; clfanout foo")
 assert_eq "clfanout passes --model claude-haiku-4-5 with NO --effort flag" $'>--model<\n>claude-haiku-4-5<\n>foo<' "$out"
 
 out=$(run_zsh "CLAUDE_CAST_PRESET=max5; source '${PLUGIN}'; clbuild foo")
-assert_eq "max5 clbuild resolves to Opus 4.8 at high" $'>--model<\n>claude-opus-4-8[1m]<\n>--effort<\n>high<\n>foo<' "$out"
+assert_eq "max5 clbuild resolves to Opus 4.8 at high" $'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>high<\n>foo<' "$out"
 
 # ---------------------------------------------------------------------------
 # 32. a DEFAULT agent mapping whose role is absent from the active preset is
@@ -665,12 +665,12 @@ assert_eq "max5 clbuild resolves to Opus 4.8 at high" $'>--model<\n>claude-opus-
 # ---------------------------------------------------------------------------
 PRO_AGENTS="$(mktemp -d)"
 write_agent_md "$PRO_AGENTS" builder  claude-sonnet-5  medium
-write_agent_md "$PRO_AGENTS" fixer    claude-opus-4-8  high
-write_agent_md "$PRO_AGENTS" gate     claude-opus-4-8  high
+write_agent_md "$PRO_AGENTS" fixer    claude-opus-5-5  high
+write_agent_md "$PRO_AGENTS" gate     claude-opus-5-5  high
 write_agent_md "$PRO_AGENTS" chore    claude-haiku-4-5 ""
 write_agent_md "$PRO_AGENTS" fanout   claude-haiku-4-5 ""
-write_agent_md "$PRO_AGENTS" verifier claude-opus-4-8  high
-write_agent_md "$PRO_AGENTS" analyst  claude-opus-5    medium
+write_agent_md "$PRO_AGENTS" verifier claude-opus-5-5  high
+write_agent_md "$PRO_AGENTS" analyst  claude-opus-5-5    medium
 out=$(run_zsh "CLAUDE_CAST_PRESET=pro; PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$PRO_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
 assert_not_contains "a default analyst->review is not unknown-role under pro" "analyst.md UNKNOWN-ROLE" "$out"
 assert_not_contains "a default mapping absent from the active preset is skipped silently (analyst unmentioned)" "analyst.md" "$out"
