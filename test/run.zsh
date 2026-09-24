@@ -764,7 +764,7 @@ out=$(run_zsh "typeset -gA CLAUDE_CAST_AGENTS; CLAUDE_CAST_AGENTS[builder]=''; e
 assert_contains "F2b: an agent mapped to '' is skipped by the guard (claude runs)" ">foo<" "$out"
 assert_not_contains "F2b: the guard does not flag the opted-out agent" "builder.md" "$out"
 out=$(run_zsh "typeset -gA CLAUDE_CAST_AGENTS; CLAUDE_CAST_AGENTS[builder]=''; PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$OPTOUT_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
-assert_not_contains "F2b: doctor ignores an opted-out agent even when its file drifts" "builder.md" "$out"
+assert_not_contains "F2b: doctor ignores an opted-out agent even when its file drifts" "agents: builder.md" "$out"
 assert_contains "F2b: defaults still fill and check the other agents" "fixer.md ok" "$out"
 assert_contains "F2b: doctor is clean when only the opted-out agent drifts" "rc=0" "$out"
 rm -rf "$DRIFT_AGENTS" "$OPTOUT_AGENTS"

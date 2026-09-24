@@ -138,10 +138,14 @@ stays inside zsh, per the project’s dependency-free constraint.
 
 ## Things to not regress
 
-- **Default table values are copied verbatim from the spec** — in
-  particular `review` ships as bare `claude-opus-5` (no `[1m]` suffix),
-  unlike every other default row. Don’t “fix” that to look consistent; it’s
-  deliberate.
+- **Default table values are projected, never hand-edited** — the
+  `casting:begin … casting:end` blocks are written by the author’s
+  `project-casting.mjs` from the scorecard’s `casting.json`. Edit the source
+  and re-project; a hand edit inside the markers is overwritten and flagged.
+- **Tests derive expected casting values from the shipped tables** (see the
+  comment block at the top of `test/run.zsh`). Never hardcode a model ID,
+  effort, role list or role count that comes from a shipped row; literals are
+  for values a test injects itself. A recast should need zero test edits.
 - **`CLAUDE_CAST_HEADLESS_FLAGS` is an array, not a scalar string.** A scalar
   can’t carry `--setting-sources ""` (an empty-string argument) through
   without the exact hairy-quoting problem this whole plugin exists to avoid

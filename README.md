@@ -80,6 +80,8 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `driver` | `claude-opus-5-5[1m]` | `high` | — |
 | `fable` | `claude-opus-5-5[1m]` | `high` | `--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `build` | `claude-opus-5-5[1m]` | `xhigh` | — |
+| `uibuild` | `claude-opus-5-5[1m]` | `xhigh` | `--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` |
+| `dgbuild` | `claude-opus-5-5[1m]` | `xhigh` | `--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `fix` | `claude-opus-5-5[1m]` | `high` | — |
 | `gate` | `claude-opus-5-5[1m]` | `xhigh` | — |
 | `chore` | `claude-sonnet-5[1m]` | `low` | — |
@@ -95,6 +97,8 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `driver` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-sonnet-5[1m]` `high` |
 | `fable` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `build` | `claude-opus-5-5[1m]` `xhigh` | `claude-opus-5-5[1m]` `high` | `claude-sonnet-5[1m]` `medium` |
+| `uibuild` | `claude-opus-5-5[1m]` `xhigh` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` |
+| `dgbuild` | `claude-opus-5-5[1m]` `xhigh` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `fix` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` |
 | `gate` | `claude-opus-5-5[1m]` `xhigh` | `claude-opus-5-5[1m]` `xhigh` | `claude-opus-5-5[1m]` `high` |
 | `chore` | `claude-sonnet-5[1m]` `low` | `claude-haiku-4-5` | `claude-haiku-4-5` |
@@ -105,7 +109,7 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `review` | `claude-opus-5-5[1m]` `medium` | `claude-opus-5-5[1m]` `medium` | — |
 | `sonnet` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` |
 
-Generated from the author’s scorecard casting source, commit `7d3bd05`, as of `2026-09-23`.
+Generated from the author’s scorecard casting source, commit `c8388ef`, as of `2026-09-23`.
 <!-- casting:end -->
 
 **This default is a snapshot, not a source of truth.** It reflects the
@@ -136,12 +140,12 @@ The table above assumes a Claude Max 20x plan. Not everyone is on that
 plan, so `zsh-claude-cast` ships two more, selected by `CLAUDE_CAST_PRESET`
 (set before sourcing, default `max20`):
 
-- **`max20`** — Claude Max 20x. The table above: Opus 4.8 carries `driver`
+- **`max20`** — Claude Max 20x. The table above: Opus 5.5 carries `driver`
   and `build` (Fable draws from a 50% weekly bucket on this plan, not
   unlimited quota), and Fable 5.1 is reserved for `verify` and `taste` —
   the two roles the maintainer’s battery found no Opus-plus-skill crossover
   for. `fable` and `orchestrate` get Fable-mode rigor a different way: Opus
-  4.8 with the fable-mode skill appended (see [Why `fable` and
+  5.5 with the fable-mode skill appended (see [Why `fable` and
   `orchestrate` run Opus, not
   Fable](#why-fable-and-orchestrate-run-opus-not-fable)).
 - **`max5`** — Claude Max 5x. Same shape as `max20`, one tier down on
@@ -149,8 +153,10 @@ plan, so `zsh-claude-cast` ships two more, selected by `CLAUDE_CAST_PRESET`
   Sonnet pass.
 - **`pro`** — Claude Pro. Sonnet-led throughout (`driver` and `build` run
   `claude-sonnet-5[1m]`), `verify`/`taste`/`orchestrate` fall back to Opus
-  instead of Fable, and there’s no `review` row at all — Opus 5 isn’t
-  assumed to be worth spending on Pro.
+  instead of Fable, and there’s no `review` row at all — a bounded-review
+  Opus pass isn’t assumed to be worth spending on Pro. The two specialist
+  build rows (`uibuild`, `dgbuild`) stay on Opus even here: a taste-bound
+  build is the job Sonnet is weakest at.
 
 ```sh
 CLAUDE_CAST_PRESET=max5
@@ -162,7 +168,8 @@ An unknown value falls back to `max20`, with a note on stderr.
 **Field note (2026-09).** In the author’s use, Sonnet 5 — even at `high` —
 introduced regressions when fixing verified findings and looped on larger
 builds, while staying reliable for chores and documented pipelines. That is
-why `fix` is Opus 4.8 on every preset and why `max5` now builds on Opus 4.8;
+why `fix` is Opus on every preset and why `max5` builds on Opus (4.8 when
+this was written, Opus 5.5 since the 2026-09-23 recast);
 on `pro`, where Opus quota is scarce, `build` stays on Sonnet 5 — keep those
 builds small and fully specified, and never hand it the fix pass.
 
@@ -179,10 +186,10 @@ it, e.g. `preset: pro (overridden: chore)`.
 ## Why `fable` and `orchestrate` run Opus, not Fable
 
 The shipped `fable` and `orchestrate` rows don’t run the Fable model at
-all — they run `claude-opus-4-8[1m]` with a third `|`-separated field, an
+all — they run `claude-opus-5-5[1m]` with a third `|`-separated field, an
 `extra` flags string: `--append-system-prompt-file
 ~/.claude/skills/fable-mode/SKILL.md`. That’s the maintainer’s own
-Fable-mode skill, appended at launch to give Opus 4.8 Fable’s planning and
+Fable-mode skill, appended at launch to give Opus Fable’s planning and
 verification habits without spending the Fable weekly bucket on roles the
 2026-09-01/02 battery found no measurable difference on. `verify` and
 `taste` don’t get this treatment — those are the two roles where the
@@ -196,6 +203,17 @@ plain row with no third field:
 CLAUDE_CAST[fable]='claude-opus-4-8[1m]|high|--append-system-prompt-file ~/my-skill/SKILL.md'
 CLAUDE_CAST[orchestrate]='claude-opus-4-8[1m]|high'   # no extra field: bare Opus
 ```
+
+**Specialist build rows.** `uibuild` and `dgbuild` use `extra` to launch
+as one of the maintainer’s custom agents: `--agent uibuilder` (or
+`dgbuilder`) loads that agent definition’s instructions, and one appended
+skill file rides along. Two CLI behaviors shaped that, both checked on
+Claude Code 2.1.281: a top-level `--agent` session loads the agent’s body
+but not the `skills:` list in its frontmatter (that preload applies to
+subagents only), and a repeated `--append-system-prompt-file` keeps only
+the last file. The row’s `--model` still wins over the agent’s own
+`model:` line. Without those agent files on your machine, blank the
+`extra` or drop the rows.
 
 A leading `~` in any extra-flag word expands to `$HOME` at launch time.
 The row itself is a plain string (a heredoc line, or a value you typed into
@@ -295,7 +313,7 @@ claude-cast version
   table: role, launcher, model, effort, extra flags.
 - **`which <launcher-or-role>`** — prints the exact command line a launcher
   runs, e.g. `claude-cast which build` or `claude-cast which clbuild` both
-  print `command claude --model claude-opus-4-8[1m] --effort xhigh`; a role
+  print `command claude --model claude-opus-5-5[1m] --effort xhigh`; a role
   with an `extra` field (e.g. `claude-cast which fable`) shows it appended,
   with any leading `~` already expanded to `$HOME`.
 - **`set` / `unset`** — see [Overriding](#overriding).

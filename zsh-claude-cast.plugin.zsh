@@ -82,13 +82,15 @@ typeset -gA _CLAUDE_CAST_AGENTS_FROM_DEFAULT # agent -> 1 when filled from the s
 # CLAUDE.md. Empty effort field (e.g. "claude-haiku-4-5|") means: pass no
 # --effort flag at all — required for Haiku, which errors on --effort.
 
-# casting:begin (generated from claude-ops casting.json @ 7d3bd05 2026-09-23 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ c8388ef 2026-09-23 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
 driver	claude-opus-5-5[1m]|high
 fable	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-opus-5-5[1m]|xhigh
+uibuild	claude-opus-5-5[1m]|xhigh|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
+dgbuild	claude-opus-5-5[1m]|xhigh|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|xhigh
 chore	claude-sonnet-5[1m]|low
@@ -107,6 +109,8 @@ _claude_cast_default_table_max5() {
 driver	claude-opus-5-5[1m]|high
 fable	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-opus-5-5[1m]|high
+uibuild	claude-opus-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
+dgbuild	claude-opus-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|xhigh
 chore	claude-haiku-4-5|
@@ -125,6 +129,8 @@ _claude_cast_default_table_pro() {
 driver	claude-sonnet-5[1m]|high
 fable	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-sonnet-5[1m]|medium
+uibuild	claude-opus-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
+dgbuild	claude-opus-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|high
 chore	claude-haiku-4-5|
@@ -146,6 +152,8 @@ chore	chore
 fanout	fanout
 verifier	verify
 analyst	review
+uibuilder	uibuild
+dgbuilder	dgbuild
 EOF
 }
 # casting:end

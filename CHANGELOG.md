@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Two specialist build roles: `uibuild` and `dgbuild`**, right after
+  `build` in every preset, with default agent mappings `uibuilder`→`uibuild`
+  and `dgbuilder`→`dgbuild`. Their `extra` launches as the matching custom
+  agent (`--agent <name>`) plus one appended skill file — see README
+  “Specialist build rows” for why it is one file.
+- **Opus 5.5 recast** projected into all three presets (2026-09-23).
+- **Tests are recast-proof.** `test/run.zsh` and `test/pty.zsh` derive every
+  expected model, effort, extra, role list and count from the shipped tables
+  instead of hardcoding them; a row change or a new role needs no test edit.
+  One doctor assertion is now anchored to its `agents:` prefix, so an agent
+  named `uibuilder` no longer matches a check for `builder.md`.
+
 ## 0.6.0 - 2026-09-21
 
 - **Two new roles: `gate` and `fanout`.** `gate` — a build-side adversarial
