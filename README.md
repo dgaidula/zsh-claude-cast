@@ -25,8 +25,9 @@ update after the last model release.
 ## The casting-table idea
 
 Instead of aliases like `alias cco='claude --model whatever-you-typed-in-2025'`,
-define **roles** — `driver`, `fable`, `build`, `fix`, `gate`, `chore`,
-`fanout`, `verify`, `taste`, `orchestrate`, `review` — each mapped to a `model|effort|extra-flags` triple in one zsh
+define **roles** — `driver`, `fable`, `build`, `uibuild`, `dgbuild`, `fix`,
+`gate`, `chore`, `fanout`, `verify`, `taste`, `orchestrate`, `review`,
+`sonnet` — each mapped to a `model|effort|extra-flags` triple in one zsh
 associative array, `CLAUDE_CAST`. The plugin *projects* that table into real
 shell functions at load time: `clbuild`, `clverify`, and so on. Change the
 table, `claude-cast reload`, and every launcher it produced is regenerated —
@@ -280,7 +281,7 @@ Plus two fixed helpers, not tied to any role:
 | `clr` | `command claude --continue "$@"` |
 
 With the default table and prefix, that’s `cldriver`, `clfable`, `clbuild`,
-`clfix`, `clgate`, `clchore`, `clfanout`, `clverify`, `cltaste`,
+`cluibuild`, `cldgbuild`, `clfix`, `clgate`, `clchore`, `clfanout`, `clverify`, `cltaste`,
 `clorchestrate`, `clreview`, `clsonnet` (plus their `clp*` headless twins),
 `cl`, and `clr`.
 
@@ -392,8 +393,8 @@ CLAUDE_CAST_AGENTS[builder]='build'   # your agent file builder.md should match 
 source /path/to/zsh-claude-cast.plugin.zsh
 ```
 
-The shipped default maps seven agent definitions — `builder`→`build`,
-`fixer`→`fix`, `gate`→`gate`, `chore`→`chore`, `fanout`→`fanout`,
+The shipped default maps nine agent definitions — `builder`→`build`,
+`uibuilder`→`uibuild`, `dgbuilder`→`dgbuild`, `fixer`→`fix`, `gate`→`gate`, `chore`→`chore`, `fanout`→`fanout`,
 `verifier`→`verify`, and `analyst`→`review`. A default mapping whose role
 isn’t in the active preset — `analyst`→`review` under `pro`, which has no
 `review` row — is skipped silently; a mapping *you* set to a role the active

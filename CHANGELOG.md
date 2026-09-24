@@ -13,6 +13,12 @@
   instead of hardcoding them; a row change or a new role needs no test edit.
   One doctor assertion is now anchored to its `agents:` prefix, so an agent
   named `uibuilder` no longer matches a check for `builder.md`.
+- **Every shipped launcher is exercised end to end**: a loop runs each
+  max20 `cl<role>` and checks its argv against the row, so a row with a
+  multi-word `extra` (the new `--agent` rows) is covered without a test edit.
+- **Adding an agent-mapped role makes `doctor` report DRIFT** (the agent file
+  is `missing`) until that definition is installed on the machine — install
+  the agent files before, or in the same pass as, the plugin update.
 
 ## 0.6.0 - 2026-09-21
 

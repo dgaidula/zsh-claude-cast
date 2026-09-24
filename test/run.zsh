@@ -220,6 +220,13 @@ out=$(run_zsh "source '${PLUGIN}'; clbuild foo --bar")
 expected=$(expected_argv "${SHIPPED[max20:build]}" foo --bar)
 assert_eq "clbuild foo --bar produces exactly --model/--effort from the shipped build row, then foo --bar" "$expected" "$out"
 
+# 2b. every shipped max20 launcher runs exactly its row — model, effort and
+#     the whole extra (the --agent rows carry four words), then its args.
+for _r in ${=SHIPPED_ROLES[max20]}; do
+  out=$(run_zsh "source '${PLUGIN}'; cl${_r} foo")
+  assert_eq "cl${_r} foo runs exactly the shipped max20 ${_r} row, then foo" "$(expected_argv "${SHIPPED[max20:$_r]}" foo)" "$out"
+done
+
 # ---------------------------------------------------------------------------
 # 3. clpbuild adds the headless flags
 # ---------------------------------------------------------------------------
@@ -652,7 +659,7 @@ DRIFT_MODEL=claude-drift-0-0
 CLEAN_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$CLEAN_AGENTS"; _clean_n=$CLEAN_COUNT
 out=$(run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$CLEAN_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
 assert_contains "doctor reports OK when the agent defs match the table" "claude-cast doctor: OK" "$out"
-assert_contains "doctor clean lists an ok agent" "builder.md ok" "$out"
+assert_contains "doctor clean lists an ok agent" "agents: builder.md ok" "$out"
 assert_contains "doctor skips chezmoi when it is not on PATH" "chezmoi: not on PATH — skipped" "$out"
 assert_contains "doctor clean exits 0" "rc=0" "$out"
 
