@@ -90,16 +90,117 @@ assert_not_contains() {
   fi
 }
 
+# ---------------------------------------------------------------------------
+# Shipped-table projections. Every expected model/effort/extra that comes from
+# a shipped preset table (or the default agent map) is READ at test time from
+# the plugin's own generated functions — never hardcoded here — so a recast of
+# the generated block needs zero test edits. Values a test injects itself (a
+# CLAUDE_CAST[...] row set before sourcing, an agent .md written to drift) stay
+# literal: those are fixtures, not projections. Only the DATA comes from the
+# plugin; the expected argv/display shapes below are written from the
+# documented contract, independently of the plugin's own resolver.
+# ---------------------------------------------------------------------------
+typeset -A SHIPPED         # "<preset>:<role>" -> spec (model|effort|extra)
+typeset -A SHIPPED_ROLES   # preset -> its roles, space-joined, in table order
+typeset -A SHIPPED_AGENTS  # agent -> role (the default agent map)
+SHIPPED_AGENT_NAMES=""     # the default agent map's agents, space-joined, in order
+
+# Prints one generated table verbatim: max20 | max5 | pro | agents. The plugin
+# is sourced in a clean `zsh -f` (no CLAUDE_CAST_FILE, load chatter dropped)
+# and the generated function called directly, so these are the shipped rows
+# themselves — not whatever the preset dispatch under test resolves to.
+shipped_table() {
+  local fn="_claude_cast_default_table_$1"
+  [[ $1 == agents ]] && fn=_claude_cast_default_agents
+  zsh -f -c "unset CLAUDE_CAST_FILE; source '${PLUGIN}' >/dev/null 2>&1 && $fn"
+}
+
+() {
+  local preset role spec agent
+  for preset in max20 max5 pro; do
+    while IFS=$'\t' read -r role spec; do
+      [[ -z "$role" ]] && continue
+      SHIPPED[$preset:$role]="$spec"
+      SHIPPED_ROLES[$preset]+="${SHIPPED_ROLES[$preset]:+ }$role"
+    done < <(shipped_table $preset)
+  done
+  while IFS=$'\t' read -r agent role; do
+    [[ -z "$agent" ]] && continue
+    SHIPPED_AGENTS[$agent]="$role"
+    SHIPPED_AGENT_NAMES+="${SHIPPED_AGENT_NAMES:+ }$agent"
+  done < <(shipped_table agents)
+}
+# An unreadable table would make every derived assertion vacuous (a loop over
+# zero roles passes), so refuse to run at all rather than pass on nothing.
+for _p in max20 max5 pro; do
+  if [[ -z "${SHIPPED_ROLES[$_p]}" ]]; then
+    print -u2 -- "  NOT OK - could not read the shipped ${_p} table from ${PLUGIN} — aborting"
+    exit 1
+  fi
+done
+if [[ -z "$SHIPPED_AGENT_NAMES" ]]; then
+  print -u2 -- "  NOT OK - could not read the shipped default agent map from ${PLUGIN} — aborting"
+  exit 1
+fi
+
+# Splits a "model|effort|extra" spec into $SPEC_MODEL, $SPEC_EFFORT, $SPEC_EXTRA.
+split_spec() {
+  local -a p=("${(@s:|:)1}")
+  SPEC_MODEL="${p[1]:-}" SPEC_EFFORT="${p[2]:-}" SPEC_EXTRA="${p[3]:-}"
+}
+
+# A spec's launch tokens into $EXP_TOKENS, then any call-time args: --model
+# <model>, --effort <effort> only when the effort is non-empty, then each extra
+# word with a leading ~ expanded to $HOME.
+_expected_tokens() {
+  split_spec "$1"; shift
+  local w
+  EXP_TOKENS=(--model "$SPEC_MODEL")
+  [[ -n "$SPEC_EFFORT" ]] && EXP_TOKENS+=(--effort "$SPEC_EFFORT")
+  for w in ${(z)SPEC_EXTRA}; do EXP_TOKENS+=("${w/#\~/$HOME}"); done
+  EXP_TOKENS+=("$@")
+}
+
+# What the stub prints for a launcher of <spec> called with [args...]: one
+# ">token<" line per argv word.
+expected_argv() {
+  _expected_tokens "$@"
+  local out="" t
+  for t in "${EXP_TOKENS[@]}"; do out+=">${t}<"$'\n'; done
+  print -rn -- "${out%$'\n'}"
+}
+
+# What `claude-cast argv <role>` prints for <spec>: bare tokens, one per line.
+expected_argv_plain() {
+  _expected_tokens "$1"
+  print -rn -- "${(pj:\n:)EXP_TOKENS}"
+}
+
+# What `claude-cast which <role>` prints for <spec>: `command claude` + the
+# tokens, an empty token shown as '' and one with whitespace single-quoted.
+expected_which() {
+  _expected_tokens "$1"
+  local -a shown=()
+  local t
+  for t in command claude "${EXP_TOKENS[@]}"; do
+    if [[ -z "$t" ]]; then shown+=("''")
+    elif [[ "$t" == *[[:space:]]* ]]; then shown+=("'$t'")
+    else shown+=("$t"); fi
+  done
+  print -r -- "${(j: :)shown}"
+}
+
 print -- "zsh-claude-cast test suite"
 print -- "plugin: ${PLUGIN}"
 print --
 
 # ---------------------------------------------------------------------------
-# 1. launchers exist for every default role
+# 1. launchers exist for every default role (every row of the shipped max20
+#    table, however many there are)
 # ---------------------------------------------------------------------------
 out=$(run_zsh "
   source '${PLUGIN}'
-  for r in driver fable build chore verify taste orchestrate review sonnet; do
+  for r in ${SHIPPED_ROLES[max20]}; do
     (( \$+functions[cl\$r] )) || print MISSING:\$r
     (( \$+functions[clp\$r] )) || print MISSING:clp\$r
   done
@@ -112,17 +213,18 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 2. clbuild foo --bar -> exactly --model <model> --effort xhigh foo --bar
+# 2. clbuild foo --bar -> exactly the shipped max20 build row's argv, then
+#    foo --bar
 # ---------------------------------------------------------------------------
 out=$(run_zsh "source '${PLUGIN}'; clbuild foo --bar")
-expected=$'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>xhigh<\n>foo<\n>--bar<'
-assert_eq "clbuild foo --bar produces exactly --model <model> --effort xhigh foo --bar" "$expected" "$out"
+expected=$(expected_argv "${SHIPPED[max20:build]}" foo --bar)
+assert_eq "clbuild foo --bar produces exactly --model/--effort from the shipped build row, then foo --bar" "$expected" "$out"
 
 # ---------------------------------------------------------------------------
 # 3. clpbuild adds the headless flags
 # ---------------------------------------------------------------------------
 out=$(run_zsh "source '${PLUGIN}'; clpbuild")
-expected=$'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>xhigh<\n>-p<\n>--output-format<\n>json<\n>--setting-sources<\n><'
+expected=$(expected_argv "${SHIPPED[max20:build]}" -p --output-format json --setting-sources "")
 assert_eq "clpbuild adds the default headless flags" "$expected" "$out"
 
 # ---------------------------------------------------------------------------
@@ -157,30 +259,36 @@ assert_contains "claude-cast unset removes the launcher" "GONE" "$out"
 # ---------------------------------------------------------------------------
 out_role=$(run_zsh "source '${PLUGIN}'; claude-cast which build")
 out_launcher=$(run_zsh "source '${PLUGIN}'; claude-cast which clbuild")
-expected="command claude --model claude-opus-5-5[1m] --effort xhigh"
+expected=$(expected_which "${SHIPPED[max20:build]}")
 assert_eq "which build" "$expected" "$out_role"
 assert_eq "which clbuild" "$expected" "$out_launcher"
 
 # ---------------------------------------------------------------------------
-# 7. `export` parses as JSON with every role
+# 7. `export` parses as JSON with every role, each carrying its shipped
+#    model and effort (an empty effort exports as "")
 # ---------------------------------------------------------------------------
 json_out=$(run_zsh "source '${PLUGIN}'; claude-cast export")
 print -r -- "$json_out" > "${STUB_DIR}/export.json"
+for _r in ${=SHIPPED_ROLES[max20]}; do
+  split_spec "${SHIPPED[max20:$_r]}"
+  print -r -- "${_r}"$'\t'"${SPEC_MODEL}"$'\t'"${SPEC_EFFORT}"
+done > "${STUB_DIR}/expected-max20.tsv"
 if command -v node >/dev/null 2>&1; then
   if node -e '
     const fs = require("fs");
     const data = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-    const roles = ["driver","fable","build","chore","verify","taste","orchestrate","review","sonnet"];
-    for (const r of roles) {
+    const rows = fs.readFileSync(process.argv[2], "utf8").split("\n").filter(Boolean).map(l => l.split("\t"));
+    if (!rows.length) { console.error("no shipped rows to check"); process.exit(1); }
+    for (const [r, model, effort = ""] of rows) {
       if (!data[r]) { console.error("missing role " + r); process.exit(1); }
-      if (typeof data[r].model !== "string" || !data[r].model) { console.error("bad model for " + r); process.exit(1); }
-      if (typeof data[r].effort !== "string" || !data[r].effort) { console.error("bad effort for " + r); process.exit(1); }
+      if (typeof data[r].model !== "string" || !data[r].model || data[r].model !== model) { console.error("bad model for " + r); process.exit(1); }
+      if (typeof data[r].effort !== "string" || data[r].effort !== effort) { console.error("bad effort for " + r); process.exit(1); }
     }
     process.exit(0);
-  ' "${STUB_DIR}/export.json"; then
+  ' "${STUB_DIR}/export.json" "${STUB_DIR}/expected-max20.tsv"; then
     ok "export parses as JSON and carries every default role"
   else
-    bad "export parses as JSON and carries every default role" "valid JSON, all roles present" "$json_out"
+    bad "export parses as JSON and carries every default role" "valid JSON, every shipped max20 row present with its model/effort" "$json_out"
   fi
 else
   print -u2 -- "  SKIP - export JSON validation (node not on PATH)"
@@ -230,7 +338,7 @@ out=$(run_zsh "
   source '${PLUGIN}'
   clbuild
 ")
-expected=$'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>xhigh<'
+expected=$(expected_argv "${SHIPPED[max20:build]}")
 assert_eq "CLAUDE_CAST_FORCE=1 overrides a pre-existing clbuild function" "$expected" "$out"
 
 # ---------------------------------------------------------------------------
@@ -241,35 +349,75 @@ expected=$'>--version<'
 assert_eq "cl passes arguments straight through to claude, uncast" "$expected" "$out"
 
 # ---------------------------------------------------------------------------
-# 11. preset selection changes the table
+# 11. preset selection changes the table: a role whose shipped pro row differs
+#     from its max20 row (driver, today) launches with the pro row under pro
 # ---------------------------------------------------------------------------
-out=$(run_zsh "CLAUDE_CAST_PRESET=pro; source '${PLUGIN}'; cldriver")
-expected=$'>--model<\n>claude-sonnet-5[1m]<\n>--effort<\n>high<'
-assert_eq "CLAUDE_CAST_PRESET=pro changes cldriver's model/effort from the max20 default" "$expected" "$out"
+_diff_role=""
+for _r in ${=SHIPPED_ROLES[pro]}; do
+  if [[ -n "${SHIPPED[max20:$_r]+x}" && "${SHIPPED[pro:$_r]}" != "${SHIPPED[max20:$_r]}" ]]; then
+    _diff_role=$_r
+    break
+  fi
+done
+_lbl="CLAUDE_CAST_PRESET=pro changes cl${_diff_role}'s model/effort from the max20 default"
+if [[ -z "$_diff_role" ]]; then
+  _w=(${=SHIPPED_ROLES[pro]}); _diff_role=$_w[1]
+  _lbl="CLAUDE_CAST_PRESET=pro casts cl${_diff_role} from the pro row"
+  print -u2 -- "  NOTE - the shipped pro and max20 tables agree on every shared row; checking cl${_diff_role} against the pro row only"
+fi
+out=$(run_zsh "CLAUDE_CAST_PRESET=pro; source '${PLUGIN}'; cl${_diff_role}")
+expected=$(expected_argv "${SHIPPED[pro:$_diff_role]}")
+assert_eq "$_lbl" "$expected" "$out"
 
 # ---------------------------------------------------------------------------
-# 12. pro has no review launcher
+# 12. pro has no launcher for a max20 role its table lacks (review, today)
 # ---------------------------------------------------------------------------
-out=$(run_zsh "
-  CLAUDE_CAST_PRESET=pro
-  source '${PLUGIN}'
-  (( \$+functions[clreview] )) && print HASFUNC || print NOFUNC
-")
-assert_contains "the pro preset defines no clreview launcher" "NOFUNC" "$out"
+_absent=()
+for _r in ${=SHIPPED_ROLES[max20]}; do
+  [[ -n "${SHIPPED[pro:$_r]+x}" ]] || _absent+=("$_r")
+done
+if (( ${#_absent} )); then
+  out=$(run_zsh "
+    CLAUDE_CAST_PRESET=pro
+    source '${PLUGIN}'
+    h=0; for r in ${_absent}; do (( \$+functions[cl\$r] )) && { print HASFUNC:\$r; h=1; }; done
+    (( h )) || print NOFUNC
+  ")
+  assert_contains "the pro preset defines no cl${(j:/cl:)_absent} launcher (a max20 role pro lacks)" "NOFUNC" "$out"
+else
+  print -u2 -- "  SKIP - pro absent-role launcher (the shipped pro table carries every max20 role)"
+fi
 
 # ---------------------------------------------------------------------------
-# 13. max5's clchore has no --effort flag (empty-effort semantics)
+# 13. an empty effort field passes no --effort flag at all (max5)
 # ---------------------------------------------------------------------------
-out=$(run_zsh "CLAUDE_CAST_PRESET=max5; source '${PLUGIN}'; clchore")
-expected=$'>--model<\n>claude-haiku-4-5<'
-assert_eq "max5's clchore argv is --model claude-haiku-4-5 with no --effort" "$expected" "$out"
+# Picks an empty-effort row of <preset> into $EMPTY_ROLE/$EMPTY_SPEC: the first
+# shipped one (a Haiku row today), with $EMPTY_PRE empty. Should a recast leave
+# the preset with none, $EMPTY_PRE injects a stand-in row before sourcing so the
+# empty-effort semantics stay covered.
+pick_empty_effort_row() {
+  local preset=$1 r
+  for r in ${=SHIPPED_ROLES[$preset]}; do
+    split_spec "${SHIPPED[$preset:$r]}"
+    if [[ -z "$SPEC_EFFORT" ]]; then
+      EMPTY_ROLE=$r EMPTY_SPEC="${SHIPPED[$preset:$r]}" EMPTY_PRE=""
+      return 0
+    fi
+  done
+  EMPTY_ROLE=noeffort EMPTY_SPEC='claude-fixture-0-0|'
+  EMPTY_PRE="typeset -gA CLAUDE_CAST; CLAUDE_CAST[noeffort]='claude-fixture-0-0|'; "
+}
+pick_empty_effort_row max5
+out=$(run_zsh "${EMPTY_PRE}CLAUDE_CAST_PRESET=max5; source '${PLUGIN}'; cl${EMPTY_ROLE}")
+expected=$(expected_argv "$EMPTY_SPEC")
+assert_eq "max5's cl${EMPTY_ROLE} (empty effort) argv is --model <model> with no --effort" "$expected" "$out"
 
 # ---------------------------------------------------------------------------
 # 14. an unknown preset falls back to max20, with a stderr message
 # ---------------------------------------------------------------------------
 out=$(run_zsh "CLAUDE_CAST_PRESET=bogus; source '${PLUGIN}'; clbuild")
 assert_contains "an unknown preset prints a fallback stderr message" "unknown preset 'bogus'" "$out"
-assert_contains "an unknown preset falls back to the max20 build row" $'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>xhigh<' "$out"
+assert_contains "an unknown preset falls back to the max20 build row" "$(expected_argv "${SHIPPED[max20:build]}")" "$out"
 
 # ---------------------------------------------------------------------------
 # 15. a user override on top of a preset wins, and is reported in `list`
@@ -361,33 +509,56 @@ assert_contains "claude-cast which prints the tilde-expanded form" "/home/tester
 assert_not_contains "claude-cast which does not print the unexpanded ~" "~/skills/foo/SKILL.md" "$out"
 
 # ---------------------------------------------------------------------------
-# 22. the shipped max20 fable/orchestrate rows carry a real extra flag whose
-#     ~ expands against the actual $HOME of whoever sources the plugin
+# 22. a shipped max20 row carrying a real extra flag with a leading ~ (fable,
+#     today — orchestrate too) expands it against the actual $HOME of whoever
+#     sources the plugin. The first such row in table order is used: its raw ~
+#     word, the $HOME-expanded form, and the argv token just before it.
 # ---------------------------------------------------------------------------
-out=$(run_zsh "source '${PLUGIN}'; claude-cast which fable")
-assert_contains "the shipped fable row's ~ expands to the real \$HOME" "${HOME}/.claude/skills/fable-mode/SKILL.md" "$out"
-assert_not_contains "the shipped fable row's which output carries no literal ~" "~/.claude/skills/fable-mode/SKILL.md" "$out"
+TILDE_ROLE="" TILDE_RAW="" TILDE_EXPANDED="" TILDE_PREV=""
+for _r in ${=SHIPPED_ROLES[max20]}; do
+  _expected_tokens "${SHIPPED[max20:$_r]}"
+  for _xw in ${(z)SPEC_EXTRA}; do
+    if [[ "$_xw" == '~'* ]]; then
+      TILDE_ROLE=$_r TILDE_RAW=$_xw TILDE_EXPANDED="${_xw/#\~/$HOME}"
+      _i=${EXP_TOKENS[(ie)$TILDE_EXPANDED]}
+      TILDE_PREV="${EXP_TOKENS[_i-1]}"
+      break 2
+    fi
+  done
+done
+if [[ -n "$TILDE_ROLE" ]]; then
+  out=$(run_zsh "source '${PLUGIN}'; claude-cast which ${TILDE_ROLE}")
+  assert_contains "the shipped ${TILDE_ROLE} row's ~ expands to the real \$HOME" "${TILDE_EXPANDED}" "$out"
+  assert_not_contains "the shipped ${TILDE_ROLE} row's which output carries no literal ~" "${TILDE_RAW}" "$out"
+else
+  print -u2 -- "  SKIP - shipped-row ~ expansion via which (no shipped max20 row has a ~ extra word)"
+fi
 
 # ---------------------------------------------------------------------------
-# 23. the fix role generates clfix/clpfix, resolving to Opus 4.8 at high
+# 23. the fix role generates clfix/clpfix, resolving to the shipped max20 fix row
 # ---------------------------------------------------------------------------
 out=$(run_zsh "source '${PLUGIN}'; (( \$+functions[clfix] )) && print HASFIX; (( \$+functions[clpfix] )) && print HASPFIX; clfix foo")
 assert_contains "clfix launcher exists" "HASFIX" "$out"
 assert_contains "clpfix launcher exists" "HASPFIX" "$out"
-assert_contains "clfix resolves to the max20 fix row (Opus 4.8, high)" $'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>high<\n>foo<' "$out"
+assert_contains "clfix resolves to the shipped max20 fix row" "$(expected_argv "${SHIPPED[max20:fix]}" foo)" "$out"
 
 # ---------------------------------------------------------------------------
 # 24. `claude-cast argv <role>` prints resolved launch args, one token per line
 # ---------------------------------------------------------------------------
 out=$(run_zsh "source '${PLUGIN}'; claude-cast argv build")
-assert_eq "argv build prints --model/--effort tokens, one per line, no 'claude' word" $'--model\nclaude-opus-5-5[1m]\n--effort\nxhigh' "$out"
+assert_eq "argv build prints --model/--effort tokens, one per line, no 'claude' word" "$(expected_argv_plain "${SHIPPED[max20:build]}")" "$out"
 
-out=$(run_zsh "source '${PLUGIN}'; claude-cast argv fable")
-assert_contains "argv fable expands a leading ~ in the extra flag to \$HOME" $'--append-system-prompt-file\n'"${HOME}/.claude/skills/fable-mode/SKILL.md" "$out"
-assert_not_contains "argv fable prints no unexpanded ~" "~/.claude/skills/fable-mode/SKILL.md" "$out"
+if [[ -n "$TILDE_ROLE" ]]; then
+  out=$(run_zsh "source '${PLUGIN}'; claude-cast argv ${TILDE_ROLE}")
+  assert_contains "argv ${TILDE_ROLE} expands a leading ~ in the extra flag to \$HOME" "${TILDE_PREV}"$'\n'"${TILDE_EXPANDED}" "$out"
+  assert_not_contains "argv ${TILDE_ROLE} prints no unexpanded ~" "${TILDE_RAW}" "$out"
+else
+  print -u2 -- "  SKIP - shipped-row ~ expansion via argv (no shipped max20 row has a ~ extra word)"
+fi
 
-out=$(run_zsh "CLAUDE_CAST_PRESET=max5; source '${PLUGIN}'; claude-cast argv chore")
-assert_eq "argv on an empty-effort role omits --effort" $'--model\nclaude-haiku-4-5' "$out"
+pick_empty_effort_row max5
+out=$(run_zsh "${EMPTY_PRE}CLAUDE_CAST_PRESET=max5; source '${PLUGIN}'; claude-cast argv ${EMPTY_ROLE}")
+assert_eq "argv on an empty-effort role omits --effort" "$(expected_argv_plain "$EMPTY_SPEC")" "$out"
 
 out=$(run_zsh "source '${PLUGIN}'; claude-cast argv nope; print rc=\$?")
 assert_contains "argv on an unknown role warns on stderr" "unknown role: nope" "$out"
@@ -398,16 +569,24 @@ assert_contains "argv on an unknown role returns 1" "rc=1" "$out"
 # ---------------------------------------------------------------------------
 json_out=$(run_zsh "source '${PLUGIN}'; claude-cast export")
 print -r -- "$json_out" > "${STUB_DIR}/export-agents.json"
+for _a in ${=SHIPPED_AGENT_NAMES}; do
+  print -r -- "${_a}"$'\t'"${SHIPPED_AGENTS[$_a]}"
+done > "${STUB_DIR}/expected-agents.tsv"
+split_spec "${SHIPPED[max20:fix]}"
 if command -v node >/dev/null 2>&1; then
   if node -e '
-    const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    const fs = require("fs");
+    const d = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    const map = fs.readFileSync(process.argv[2], "utf8").split("\n").filter(Boolean).map(l => l.split("\t"));
     if (typeof d.agents !== "object" || d.agents === null) { console.error("no agents object"); process.exit(1); }
-    if (d.agents.builder !== "build") { console.error("agents.builder != build"); process.exit(1); }
-    if (d.agents.fixer !== "fix") { console.error("agents.fixer != fix"); process.exit(1); }
-    if (!d.fix || d.fix.model !== "claude-opus-5-5[1m]") { console.error("fix role missing/wrong"); process.exit(1); }
+    if (!map.length) { console.error("no shipped agent map to check"); process.exit(1); }
+    for (const [agent, role] of map) {
+      if (d.agents[agent] !== role) { console.error("agents." + agent + " != " + role); process.exit(1); }
+    }
+    if (!d.fix || d.fix.model !== process.argv[3]) { console.error("fix role missing/wrong"); process.exit(1); }
     if (typeof d.preset !== "string") { console.error("preset key lost"); process.exit(1); }
     process.exit(0);
-  ' "${STUB_DIR}/export-agents.json"; then
+  ' "${STUB_DIR}/export-agents.json" "${STUB_DIR}/expected-agents.tsv" "$SPEC_MODEL"; then
     ok "export JSON carries the agents map and the fix role, keeping preset"
   else
     bad "export JSON carries the agents map and the fix role, keeping preset" "valid JSON with agents+fix" "$json_out"
@@ -439,21 +618,38 @@ write_agent_md() {
   } > "$dir/$name.md"
 }
 
-# A dir whose seven default-mapped agent defs match the shipped max20 table.
-# Coupled to that table on purpose — this is what "in sync" looks like; if the
-# build/fix/gate/chore/fanout/verify/review rows change, update these seven.
-make_clean_agents_dir() {
-  local dir=$1
-  write_agent_md "$dir" builder  claude-opus-5-5  xhigh
-  write_agent_md "$dir" fixer    claude-opus-5-5  high
-  write_agent_md "$dir" gate     claude-opus-5-5  xhigh
-  write_agent_md "$dir" chore    claude-sonnet-5  low
-  write_agent_md "$dir" fanout   claude-haiku-4-5 ""
-  write_agent_md "$dir" verifier claude-fable-5-1 xhigh
-  write_agent_md "$dir" analyst  claude-opus-5-5    medium
+# The agent-frontmatter form of <preset>'s shipped row for <role>: $WANT_MODEL
+# (the table model minus any trailing [..] context suffix — agent files carry
+# the bare ID) and $WANT_EFFORT.
+want_agent() {
+  split_spec "${SHIPPED[$1:$2]}"
+  WANT_MODEL="${SPEC_MODEL%\[*\]}" WANT_EFFORT="$SPEC_EFFORT"
 }
 
-CLEAN_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$CLEAN_AGENTS"
+# A dir holding one def per default-mapped agent, each matching its role's row
+# in the shipped <preset> table (max20 unless given) — this is what "in sync"
+# looks like, read from the shipped tables so a recast needs no edit here. An
+# agent whose role the preset lacks gets no file; $CLEAN_COUNT = files written.
+make_clean_agents_dir() {
+  local dir=$1 preset=${2:-max20} agent role
+  CLEAN_COUNT=0
+  for agent in ${=SHIPPED_AGENT_NAMES}; do
+    role=${SHIPPED_AGENTS[$agent]}
+    [[ -n "${SHIPPED[$preset:$role]+x}" ]] || continue
+    want_agent $preset $role
+    write_agent_md "$dir" "$agent" "$WANT_MODEL" "$WANT_EFFORT"
+    (( CLEAN_COUNT++ ))
+  done
+}
+
+# The builder agent's in-sync values under max20 (the default preset), and a
+# made-up model no shipped table carries — the injected "wrong model" for every
+# drift fixture below, so a drifted file can never coincide with a real row.
+want_agent max20 "${SHIPPED_AGENTS[builder]}"
+BUILDER_MODEL=$WANT_MODEL BUILDER_EFFORT=$WANT_EFFORT
+DRIFT_MODEL=claude-drift-0-0
+
+CLEAN_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$CLEAN_AGENTS"; _clean_n=$CLEAN_COUNT
 out=$(run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$CLEAN_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
 assert_contains "doctor reports OK when the agent defs match the table" "claude-cast doctor: OK" "$out"
 assert_contains "doctor clean lists an ok agent" "builder.md ok" "$out"
@@ -463,13 +659,13 @@ assert_contains "doctor clean exits 0" "rc=0" "$out"
 brief_out=$(run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$CLEAN_AGENTS'; source '${PLUGIN}'; claude-cast doctor --brief")
 brief_lines=("${(@f)brief_out}")
 assert_eq "doctor --brief prints exactly one line" "1" "${#brief_lines}"
-assert_contains "doctor --brief OK line names agents and chezmoi state" "claude-cast doctor: OK agents=7 chezmoi=skipped" "$brief_out"
+assert_contains "doctor --brief OK line names agents and chezmoi state" "claude-cast doctor: OK agents=${_clean_n} chezmoi=skipped" "$brief_out"
 
 MISMATCH_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$MISMATCH_AGENTS"
-write_agent_md "$MISMATCH_AGENTS" builder claude-sonnet-5 xhigh   # wrong model
+write_agent_md "$MISMATCH_AGENTS" builder "$DRIFT_MODEL" "$BUILDER_EFFORT"   # wrong model
 out=$(run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_AGENTS'; source '${PLUGIN}'; claude-cast doctor --brief; print rc=\$?")
 assert_contains "doctor reports DRIFT on a model mismatch" "DRIFT" "$out"
-assert_contains "doctor names the mismatched field, have vs want" "builder.md model have=claude-sonnet-5 want=claude-opus-5-5" "$out"
+assert_contains "doctor names the mismatched field, have vs want" "builder.md model have=${DRIFT_MODEL} want=${BUILDER_MODEL}" "$out"
 assert_contains "doctor exits 1 on drift" "rc=1" "$out"
 
 MISSING_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$MISSING_AGENTS"; rm -f "$MISSING_AGENTS/fixer.md"
@@ -487,11 +683,11 @@ rm -rf "$CLEAN_AGENTS" "$MISMATCH_AGENTS" "$MISSING_AGENTS"
 # 27. launch-time agent check: ask (non-TTY) refuses with 3 and never runs the
 #     stub; warn runs it; off is silent; no-mismatch is silent.
 # ---------------------------------------------------------------------------
-MISMATCH_LAUNCH="$(mktemp -d)"; write_agent_md "$MISMATCH_LAUNCH" builder claude-sonnet-5 xhigh
+MISMATCH_LAUNCH="$(mktemp -d)"; write_agent_md "$MISMATCH_LAUNCH" builder "$DRIFT_MODEL" "$BUILDER_EFFORT"
 
 # ask must be requested explicitly now that the default is warn (F2c).
 out=$(run_zsh "export CLAUDE_CAST_AGENTS_DIR='$MISMATCH_LAUNCH'; CLAUDE_CAST_LAUNCH_CHECK=ask; source '${PLUGIN}'; clbuild foo; print rc=\$?")
-assert_contains "launch check (ask, non-TTY) prints the mismatch" "builder.md model have=claude-sonnet-5 want=claude-opus-5-5" "$out"
+assert_contains "launch check (ask, non-TTY) prints the mismatch" "builder.md model have=${DRIFT_MODEL} want=${BUILDER_MODEL}" "$out"
 assert_contains "launch check (ask, non-TTY) refuses without a TTY" "refusing to launch" "$out"
 assert_contains "launch check (ask, non-TTY) returns 3" "rc=3" "$out"
 assert_not_contains "launch check (ask, non-TTY) never runs claude" ">foo<" "$out"
@@ -513,7 +709,7 @@ assert_contains "launch check (off) runs claude" ">foo<" "$out"
 
 out=$(run_zsh "source '${PLUGIN}'; clbuild foo")
 assert_not_contains "launch check with no mismatch is silent" "agent definition drift" "$out"
-assert_contains "launch check with no mismatch runs claude normally" $'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>xhigh<\n>foo<' "$out"
+assert_contains "launch check with no mismatch runs claude normally" "$(expected_argv "${SHIPPED[max20:build]}" foo)" "$out"
 
 # F16a: an unknown CLAUDE_CAST_LAUNCH_CHECK value names the valid ones and
 # behaves as warn (never silently takes the ask path / refuses in automation).
@@ -542,7 +738,7 @@ rm -rf "$MISMATCH_LAUNCH"
 #     disable (F2a), per-agent opt-out (F2b). A drifted builder.md would fire
 #     the guard / doctor unless the agent is disabled or opted out.
 # ---------------------------------------------------------------------------
-DRIFT_AGENTS="$(mktemp -d)"; write_agent_md "$DRIFT_AGENTS" builder claude-sonnet-5 xhigh
+DRIFT_AGENTS="$(mktemp -d)"; write_agent_md "$DRIFT_AGENTS" builder "$DRIFT_MODEL" "$BUILDER_EFFORT"
 
 # F1: a plain (non-association) empty array set before sourcing must not abort
 # the load with "invalid subscript range" — launchers exist, no check runs.
@@ -563,7 +759,7 @@ assert_contains "F2a: doctor exits 0 for an empty map" "rc=0" "$out"
 # F2b: one agent mapped to '' opts that agent out silently; the rest still come
 # from the defaults and are still checked. Clean dir + a drifted builder.md.
 OPTOUT_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$OPTOUT_AGENTS"
-write_agent_md "$OPTOUT_AGENTS" builder claude-sonnet-5 xhigh   # drift builder.md
+write_agent_md "$OPTOUT_AGENTS" builder "$DRIFT_MODEL" "$BUILDER_EFFORT"   # drift builder.md
 out=$(run_zsh "typeset -gA CLAUDE_CAST_AGENTS; CLAUDE_CAST_AGENTS[builder]=''; export CLAUDE_CAST_AGENTS_DIR='$OPTOUT_AGENTS'; source '${PLUGIN}'; clbuild foo")
 assert_contains "F2b: an agent mapped to '' is skipped by the guard (claude runs)" ">foo<" "$out"
 assert_not_contains "F2b: the guard does not flag the opted-out agent" "builder.md" "$out"
@@ -582,32 +778,34 @@ FM_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$FM_AGENTS"
 B="$FM_AGENTS/builder.md"
 fm_doctor() { run_zsh "PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$FM_AGENTS'; source '${PLUGIN}'; claude-cast doctor"; }
 
-# Valid YAML the parser must ACCEPT (builder.md ok):
-printf -- '---\r\nname: builder\r\ndescription: x\r\nmodel: claude-opus-5-5\r\neffort: xhigh\r\n---\r\n' > "$B"
+# Valid YAML the parser must ACCEPT (builder.md ok). M/E are the builder's
+# in-sync values, read from the shipped max20 table.
+M=$BUILDER_MODEL E=$BUILDER_EFFORT
+printf -- '---\r\nname: builder\r\ndescription: x\r\nmodel: %s\r\neffort: %s\r\n---\r\n' "$M" "$E" > "$B"
 assert_contains "F5: CRLF line endings accepted" "builder.md ok" "$(fm_doctor)"
-printf -- '---\nname: builder\nmodel: "claude-opus-5-5"\neffort: "xhigh"\n---\n' > "$B"
+printf -- '---\nname: builder\nmodel: "%s"\neffort: "%s"\n---\n' "$M" "$E" > "$B"
 assert_contains "F5: double-quoted values accepted" "builder.md ok" "$(fm_doctor)"
-printf -- "---\nname: builder\nmodel: 'claude-opus-5-5'\neffort: 'xhigh'\n---\n" > "$B"
+printf -- "---\nname: builder\nmodel: '%s'\neffort: '%s'\n---\n" "$M" "$E" > "$B"
 assert_contains "F5: single-quoted values accepted" "builder.md ok" "$(fm_doctor)"
-printf -- '---\nname: builder\nmodel: claude-opus-5-5 # pinned\neffort: xhigh # why\n---\n' > "$B"
+printf -- '---\nname: builder\nmodel: %s # pinned\neffort: %s # why\n---\n' "$M" "$E" > "$B"
 assert_contains "F5: inline # comment stripped from values" "builder.md ok" "$(fm_doctor)"
-printf -- '--- \nname: builder\nmodel: claude-opus-5-5\neffort: xhigh\n--- \n' > "$B"
+printf -- '--- \nname: builder\nmodel: %s\neffort: %s\n--- \n' "$M" "$E" > "$B"
 assert_contains "F5: a fence with trailing whitespace accepted" "builder.md ok" "$(fm_doctor)"
-printf -- '\xef\xbb\xbf---\nname: builder\nmodel: claude-opus-5-5\neffort: xhigh\n---\n' > "$B"
+printf -- '\xef\xbb\xbf---\nname: builder\nmodel: %s\neffort: %s\n---\n' "$M" "$E" > "$B"
 assert_contains "F5: a leading UTF-8 BOM accepted" "builder.md ok" "$(fm_doctor)"
-printf -- '---\nname: builder\nmodel: claude-opus-5-5\neffort: xhigh' > "$B"
+printf -- '---\nname: builder\nmodel: %s\neffort: %s' "$M" "$E" > "$B"
 assert_contains "F5: a final line with no trailing newline accepted" "builder.md ok" "$(fm_doctor)"
-printf -- '---\nname: builder\n# model: claude-sonnet-5\nmodel: claude-opus-5-5\neffort: xhigh\n---\n' > "$B"
+printf -- '---\nname: builder\n# model: %s\nmodel: %s\neffort: %s\n---\n' "$DRIFT_MODEL" "$M" "$E" > "$B"
 assert_contains "F5: a '# model:' comment line is not read as the value" "builder.md ok" "$(fm_doctor)"
 
 # Genuinely different values must STILL mismatch (no over-normalization):
-printf -- '---\nname: builder\neffort: xhigh\n---\nmodel: claude-opus-5-5\n' > "$B"
+printf -- '---\nname: builder\neffort: %s\n---\nmodel: %s\n' "$E" "$M" > "$B"
 assert_contains "F5: model only in the body is a real mismatch" "builder.md MISMATCH" "$(fm_doctor)"
-printf -- '---\nname: builder\nmodel: claude-opus-5-5[1m]\neffort: xhigh\n---\n' > "$B"
+printf -- '---\nname: builder\nmodel: %s[1m]\neffort: %s\n---\n' "$M" "$E" > "$B"
 assert_contains "F5: a [1m] suffix in the file is a real mismatch" "builder.md MISMATCH" "$(fm_doctor)"
 
 # An unreadable file yields one clean UNREADABLE result, no raw zsh error.
-printf -- '---\nname: builder\nmodel: claude-opus-5-5\neffort: xhigh\n---\n' > "$B"; chmod 000 "$B"
+printf -- '---\nname: builder\nmodel: %s\neffort: %s\n---\n' "$M" "$E" > "$B"; chmod 000 "$B"
 if [[ -r "$B" ]]; then
   print -u2 -- "  SKIP - F5 unreadable file (readable despite chmod 000, likely running as root)"
 else
@@ -642,40 +840,49 @@ assert_contains "F13: doctor names the no-upstream lag warning" "cannot measure 
 rm -rf "$CZ_BIN" "$CZ_REPO"
 
 # ---------------------------------------------------------------------------
-# 31. the gate and fanout roles, and the max5 build row (Opus 4.8 at high).
+# 31. the gate and fanout roles, and the max5 build row — each against its
+#     shipped row.
 # ---------------------------------------------------------------------------
 out=$(run_zsh "source '${PLUGIN}'; (( \$+functions[clgate] )) && print HASGATE; (( \$+functions[clpgate] )) && print HASPGATE; clgate foo")
 assert_contains "clgate launcher exists" "HASGATE" "$out"
 assert_contains "clpgate launcher exists" "HASPGATE" "$out"
-assert_contains "clgate resolves to the max20 gate row (Opus 4.8, xhigh)" $'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>xhigh<\n>foo<' "$out"
+assert_contains "clgate resolves to the shipped max20 gate row" "$(expected_argv "${SHIPPED[max20:gate]}" foo)" "$out"
 
 out=$(run_zsh "source '${PLUGIN}'; (( \$+functions[clfanout] )) && print HASFANOUT")
 assert_contains "clfanout launcher exists" "HASFANOUT" "$out"
 out=$(run_zsh "source '${PLUGIN}'; clfanout foo")
-assert_eq "clfanout passes --model claude-haiku-4-5 with NO --effort flag" $'>--model<\n>claude-haiku-4-5<\n>foo<' "$out"
+assert_eq "clfanout argv is exactly the shipped max20 fanout row (no --effort flag when its effort is empty)" "$(expected_argv "${SHIPPED[max20:fanout]}" foo)" "$out"
 
 out=$(run_zsh "CLAUDE_CAST_PRESET=max5; source '${PLUGIN}'; clbuild foo")
-assert_eq "max5 clbuild resolves to Opus 4.8 at high" $'>--model<\n>claude-opus-5-5[1m]<\n>--effort<\n>high<\n>foo<' "$out"
+assert_eq "max5 clbuild resolves to the shipped max5 build row" "$(expected_argv "${SHIPPED[max5:build]}" foo)" "$out"
 
 # ---------------------------------------------------------------------------
 # 32. a DEFAULT agent mapping whose role is absent from the active preset is
-#     skipped silently (analyst -> review under `pro`, which has no review
+#     skipped silently (analyst -> review under `pro`, today: pro has no review
 #     row) — not unknown-role, not DRIFT; a USER-set mapping to a role in no
 #     preset stays unknown-role. Run with PATH=$NOCZ_BIN so chezmoi is skipped.
+#     The pro-mapped agents are written in sync with the shipped pro table; each
+#     default agent whose role pro lacks gets a deliberately drifted file, so
+#     any check of it at all would show up.
 # ---------------------------------------------------------------------------
-PRO_AGENTS="$(mktemp -d)"
-write_agent_md "$PRO_AGENTS" builder  claude-sonnet-5  medium
-write_agent_md "$PRO_AGENTS" fixer    claude-opus-5-5  high
-write_agent_md "$PRO_AGENTS" gate     claude-opus-5-5  high
-write_agent_md "$PRO_AGENTS" chore    claude-haiku-4-5 ""
-write_agent_md "$PRO_AGENTS" fanout   claude-haiku-4-5 ""
-write_agent_md "$PRO_AGENTS" verifier claude-opus-5-5  high
-write_agent_md "$PRO_AGENTS" analyst  claude-opus-5-5    medium
+PRO_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$PRO_AGENTS" pro; _pro_n=$CLEAN_COUNT
+_pro_skipped=()
+for _a in ${=SHIPPED_AGENT_NAMES}; do
+  [[ -n "${SHIPPED[pro:${SHIPPED_AGENTS[$_a]}]+x}" ]] && continue
+  _pro_skipped+=("$_a")
+  write_agent_md "$PRO_AGENTS" "$_a" "$DRIFT_MODEL" low
+done
 out=$(run_zsh "CLAUDE_CAST_PRESET=pro; PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$PRO_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
-assert_not_contains "a default analyst->review is not unknown-role under pro" "analyst.md UNKNOWN-ROLE" "$out"
-assert_not_contains "a default mapping absent from the active preset is skipped silently (analyst unmentioned)" "analyst.md" "$out"
-assert_contains "doctor is OK under pro with the six pro-mapped agents in sync" "claude-cast doctor: OK" "$out"
-assert_contains "doctor exits 0 under pro (skipping analyst is not drift)" "rc=0" "$out"
+if (( ${#_pro_skipped} )); then
+  for _a in "${_pro_skipped[@]}"; do
+    assert_not_contains "a default ${_a}->${SHIPPED_AGENTS[$_a]} is not unknown-role under pro" "${_a}.md UNKNOWN-ROLE" "$out"
+    assert_not_contains "a default mapping absent from the active preset is skipped silently (${_a} unmentioned)" "${_a}.md" "$out"
+  done
+else
+  print -u2 -- "  SKIP - default mapping absent from pro (every default agent's role is in the shipped pro table)"
+fi
+assert_contains "doctor is OK under pro with the ${_pro_n} pro-mapped agents in sync" "claude-cast doctor: OK" "$out"
+assert_contains "doctor exits 0 under pro (skipping ${${_pro_skipped[*]}:-nothing} is not drift)" "rc=0" "$out"
 
 out=$(run_zsh "typeset -gA CLAUDE_CAST_AGENTS; CLAUDE_CAST_AGENTS[custom]='nonesuch'; PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$AGENTS_EMPTY_DIR'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
 assert_contains "a user-set mapping to a role in no preset stays unknown-role" "custom.md UNKNOWN-ROLE" "$out"

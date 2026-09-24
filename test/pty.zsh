@@ -70,12 +70,37 @@ fi
 
 PTY_TIMEOUT=8   # seconds; the ceiling on every wait, so a hang fails a case
 
-# Writes a builder.md whose model/effort either match the max20 `build` row
-# (claude-opus-5-5 / xhigh) or deliberately disagree with it.
+# The builder agent's in-sync model/effort: the shipped max20 row of the role
+# builder maps to, read from the plugin's own generated tables at test time
+# (never hardcoded, so a recast needs no edit here) — model minus any [..]
+# context suffix, the form agent frontmatter carries. Sourced in a clean `zsh
+# -f` with no CLAUDE_CAST_FILE, and the generated functions called directly.
+_pty_shipped() { zsh -f -c "unset CLAUDE_CAST_FILE; source '${PLUGIN}' >/dev/null 2>&1 && $1"; }
+PTY_BUILD_SPEC=""
+() {
+  local agent role r s builder_role=""
+  while IFS=$'\t' read -r agent role; do
+    [[ $agent == builder ]] && builder_role=$role
+  done < <(_pty_shipped _claude_cast_default_agents)
+  while IFS=$'\t' read -r r s; do
+    [[ -n $builder_role && $r == $builder_role ]] && PTY_BUILD_SPEC=$s
+  done < <(_pty_shipped _claude_cast_default_table_max20)
+}
+if [[ -z "$PTY_BUILD_SPEC" ]]; then
+  bad "read the builder agent's row from the shipped max20 table" "a builder -> <role> mapping and its max20 row" "(none found in ${PLUGIN})"
+  summary
+fi
+() {
+  local -a p=("${(@s:|:)PTY_BUILD_SPEC}")
+  PTY_BUILD_MODEL="${p[1]%\[*\]}" PTY_BUILD_EFFORT="${p[2]:-}"
+}
+
+# Writes a builder.md whose model/effort either match the shipped max20 row
+# (above) or deliberately disagree with it (a made-up model no table carries).
 _pty_write_builder() {
   local dir=$1 kind=$2 model effort
-  if [[ $kind == mismatch ]]; then model=claude-sonnet-5; effort=low
-  else                              model=claude-opus-5-5;  effort=xhigh; fi
+  if [[ $kind == mismatch ]]; then model=claude-drift-0-0; effort=low
+  else                              model=$PTY_BUILD_MODEL; effort=$PTY_BUILD_EFFORT; fi
   {
     print -- '---'; print -- 'name: builder'; print -- 'description: fixture'
     print -- "model: $model"; print -- "effort: $effort"
