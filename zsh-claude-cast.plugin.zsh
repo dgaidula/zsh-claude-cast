@@ -82,7 +82,7 @@ typeset -gA _CLAUDE_CAST_AGENTS_FROM_DEFAULT # agent -> 1 when filled from the s
 # CLAUDE.md. Empty effort field (e.g. "claude-haiku-4-5|") means: pass no
 # --effort flag at all — required for Haiku, which errors on --effort.
 
-# casting:begin (generated from claude-ops casting.json @ b7beea6 2026-09-28 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ 683ee7f 2026-09-29 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
@@ -95,7 +95,7 @@ fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|xhigh
 chore	claude-sonnet-5[1m]|low
 fanout	claude-haiku-4-5|
-verify	claude-fable-5-1[1m]|xhigh
+verify	claude-fable-5-1[1m]|xhigh|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
 taste	claude-opus-5-5[1m]|high
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 review	claude-opus-5-5[1m]|medium|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
@@ -115,7 +115,7 @@ fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|xhigh
 chore	claude-haiku-4-5|
 fanout	claude-haiku-4-5|
-verify	claude-fable-5-1[1m]|high
+verify	claude-fable-5-1[1m]|high|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
 taste	claude-opus-5-5[1m]|high
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 review	claude-opus-5-5[1m]|medium|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
@@ -135,7 +135,7 @@ fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|high
 chore	claude-haiku-4-5|
 fanout	claude-haiku-4-5|
-verify	claude-opus-5-5[1m]|high
+verify	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
 taste	claude-opus-5-5[1m]|high
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 sonnet	claude-sonnet-5[1m]|high
