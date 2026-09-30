@@ -82,7 +82,7 @@ typeset -gA _CLAUDE_CAST_AGENTS_FROM_DEFAULT # agent -> 1 when filled from the s
 # CLAUDE.md. Empty effort field (e.g. "claude-haiku-4-5|") means: pass no
 # --effort flag at all — required for Haiku, which errors on --effort.
 
-# casting:begin (generated from claude-ops casting.json @ 683ee7f 2026-09-29 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ 9c54dff 2026-09-30 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
@@ -93,13 +93,13 @@ uibuild	claude-opus-5-5[1m]|xhigh|--agent uibuilder --append-system-prompt-file 
 dgbuild	claude-opus-5-5[1m]|xhigh|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|xhigh
-chore	claude-sonnet-5[1m]|low
+chore	claude-sonnet-5-5[1m]|low
 fanout	claude-haiku-4-5|
 verify	claude-fable-5-1[1m]|xhigh|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
 taste	claude-opus-5-5[1m]|high
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 review	claude-opus-5-5[1m]|medium|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
-sonnet	claude-sonnet-5[1m]|high
+sonnet	claude-sonnet-5-5[1m]|high
 EOF
 }
 
@@ -119,7 +119,7 @@ verify	claude-fable-5-1[1m]|high|--append-system-prompt-file ~/.claude/skills/so
 taste	claude-opus-5-5[1m]|high
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 review	claude-opus-5-5[1m]|medium|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
-sonnet	claude-sonnet-5[1m]|high
+sonnet	claude-sonnet-5-5[1m]|high
 EOF
 }
 
@@ -138,7 +138,7 @@ fanout	claude-haiku-4-5|
 verify	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
 taste	claude-opus-5-5[1m]|high
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
-sonnet	claude-sonnet-5[1m]|high
+sonnet	claude-sonnet-5-5[1m]|high
 EOF
 }
 

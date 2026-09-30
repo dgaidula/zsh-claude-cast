@@ -85,13 +85,13 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `dgbuild` | `claude-opus-5-5[1m]` | `xhigh` | `--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `fix` | `claude-opus-5-5[1m]` | `high` | — |
 | `gate` | `claude-opus-5-5[1m]` | `xhigh` | — |
-| `chore` | `claude-sonnet-5[1m]` | `low` | — |
+| `chore` | `claude-sonnet-5-5[1m]` | `low` | — |
 | `fanout` | `claude-haiku-4-5` | — | — |
 | `verify` | `claude-fable-5-1[1m]` | `xhigh` | `--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` |
 | `taste` | `claude-opus-5-5[1m]` | `high` | — |
 | `orchestrate` | `claude-opus-5-5[1m]` | `high` | `--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `review` | `claude-opus-5-5[1m]` | `medium` | `--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` |
-| `sonnet` | `claude-sonnet-5[1m]` | `high` | — |
+| `sonnet` | `claude-sonnet-5-5[1m]` | `high` | — |
 
 | role | max20 | max5 | pro |
 |---|---|---|---|
@@ -102,15 +102,15 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `dgbuild` | `claude-opus-5-5[1m]` `xhigh` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `fix` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` |
 | `gate` | `claude-opus-5-5[1m]` `xhigh` | `claude-opus-5-5[1m]` `xhigh` | `claude-opus-5-5[1m]` `high` |
-| `chore` | `claude-sonnet-5[1m]` `low` | `claude-haiku-4-5` | `claude-haiku-4-5` |
+| `chore` | `claude-sonnet-5-5[1m]` `low` | `claude-haiku-4-5` | `claude-haiku-4-5` |
 | `fanout` | `claude-haiku-4-5` | `claude-haiku-4-5` | `claude-haiku-4-5` |
 | `verify` | `claude-fable-5-1[1m]` `xhigh` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | `claude-fable-5-1[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` |
 | `taste` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` |
 | `orchestrate` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `review` | `claude-opus-5-5[1m]` `medium` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | `claude-opus-5-5[1m]` `medium` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | — |
-| `sonnet` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` | `claude-sonnet-5[1m]` `high` |
+| `sonnet` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` |
 
-Generated from the author’s scorecard casting source, commit `683ee7f`, as of `2026-09-29`.
+Generated from the author’s scorecard casting source, commit `9c54dff`, as of `2026-09-30`.
 <!-- casting:end -->
 
 **This default is a snapshot, not a source of truth.** It reflects the
