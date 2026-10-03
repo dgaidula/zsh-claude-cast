@@ -86,12 +86,12 @@ between `# casting:begin (generated from claude-ops casting.json @ <sha>
 <date> — do not edit by hand)` and `# casting:end` in this file (same two
 markers, as `<!-- casting:begin -->`/`<!-- casting:end -->`, wrap the
 matching tables in README.md). The one machine-readable source is
-`casting.json` in the author’s private `claude-ops` repo; `claude-ops/routines/project-casting.mjs --write`
+`casting.json` in the author’s private `claude-ops` repo; `claude-ops/routines/project-casting.mjs write --go`
 renders it into both files here plus the author’s global Claude Code
-instructions, and `--check` fails if any of the three disagrees with
-`casting.json`. Don’t hand-edit inside the markers — edit `casting.json` and
-re-run `--write` instead; a hand edit here is exactly what `--check` exists
-to catch. Everything outside the markers (this file included) is normal
+instructions (`write` alone is a dry run that lists what would change), and
+`check` fails if any of the three disagrees with `casting.json`. Don’t
+hand-edit inside the markers — edit `casting.json` and re-run `write --go`
+instead; a hand edit here is exactly what `check` exists to catch. Everything outside the markers (this file included) is normal
 hand-maintained plugin code.
 
 ## Launcher generation mechanics
