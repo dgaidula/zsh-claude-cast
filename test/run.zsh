@@ -317,6 +317,24 @@ else
   bad "lint exits 1 on an alias-model row" "exit 1" "exit $rc"
 fi
 
+# Haiku 4.5 rejects --effort (lint warns); Haiku 5.5 takes it (lint is clean).
+run_zsh "
+  typeset -gA CLAUDE_CAST
+  CLAUDE_CAST[old]='claude-haiku-4-5|low'
+  source '${PLUGIN}'
+  claude-cast lint >/dev/null 2>&1
+" >/dev/null
+rc=$?
+if [[ $rc -eq 1 ]]; then ok "lint exits 1 on a Haiku 4.5 row with an effort"; else bad "lint exits 1 on a Haiku 4.5 row with an effort" "exit 1" "exit $rc"; fi
+run_zsh "
+  typeset -gA CLAUDE_CAST
+  CLAUDE_CAST[new]='claude-haiku-5-5|low'
+  source '${PLUGIN}'
+  claude-cast lint >/dev/null 2>&1
+" >/dev/null
+rc=$?
+if [[ $rc -eq 0 ]]; then ok "lint exits 0 on a Haiku 5.5 row with an effort"; else bad "lint exits 0 on a Haiku 5.5 row with an effort" "exit 0" "exit $rc"; fi
+
 run_zsh "
   source '${PLUGIN}'
   claude-cast lint >/dev/null 2>&1

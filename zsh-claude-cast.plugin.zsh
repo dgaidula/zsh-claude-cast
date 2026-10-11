@@ -80,21 +80,22 @@ typeset -gA _CLAUDE_CAST_AGENTS_FROM_DEFAULT # agent -> 1 when filled from the s
 # The shipped preset tables, one function each, as tab-separated
 # "role\tspec" lines. Keep in sync with README.md "Plan presets" and
 # CLAUDE.md. Empty effort field (e.g. "claude-haiku-4-5|") means: pass no
-# --effort flag at all — required for Haiku, which errors on --effort.
+# --effort flag at all — required for Haiku 4.5 and older, which error on --effort
+# (Haiku 5.5 is the first Haiku that takes it).
 
-# casting:begin (generated from claude-ops casting.json @ 9c54dff 2026-09-30 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ 639402e 2026-10-11 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
 driver	claude-opus-5-5[1m]|high
 fable	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
-build	claude-opus-5-5[1m]|xhigh
-uibuild	claude-opus-5-5[1m]|xhigh|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
-dgbuild	claude-opus-5-5[1m]|xhigh|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+build	claude-sonnet-5-5[1m]|high
+uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
+dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|xhigh
 chore	claude-sonnet-5-5[1m]|low
-fanout	claude-haiku-4-5|
+fanout	claude-haiku-5-5|low
 verify	claude-fable-5-1[1m]|xhigh|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
 taste	claude-opus-5-5[1m]|high
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
@@ -108,13 +109,13 @@ _claude_cast_default_table_max5() {
   cat <<'EOF'
 driver	claude-opus-5-5[1m]|high
 fable	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
-build	claude-opus-5-5[1m]|high
-uibuild	claude-opus-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
-dgbuild	claude-opus-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+build	claude-sonnet-5-5[1m]|high
+uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
+dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|xhigh
 chore	claude-haiku-4-5|
-fanout	claude-haiku-4-5|
+fanout	claude-haiku-5-5|low
 verify	claude-fable-5-1[1m]|high|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
 taste	claude-opus-5-5[1m]|high
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
@@ -128,13 +129,13 @@ _claude_cast_default_table_pro() {
   cat <<'EOF'
 driver	claude-sonnet-5[1m]|high
 fable	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
-build	claude-sonnet-5[1m]|medium
-uibuild	claude-opus-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
-dgbuild	claude-opus-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+build	claude-sonnet-5-5[1m]|high
+uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
+dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|high
 chore	claude-haiku-4-5|
-fanout	claude-haiku-4-5|
+fanout	claude-haiku-5-5|low
 verify	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
 taste	claude-opus-5-5[1m]|high
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
@@ -692,8 +693,9 @@ _claude_cast_cmd_lint() {
       print -- "claude-cast lint: [$role] model '$__cc_model' is a bare alias — use the full model ID (aliases re-resolve across releases)"
       warned=1
     fi
-    if [[ "${__cc_model:l}" == *haiku* && -n "$__cc_effort" ]]; then
-      print -- "claude-cast lint: [$role] model '$__cc_model' is a Haiku model — the --effort flag errors on Haiku"
+    # Haiku 4.5 and the Claude 3 Haikus reject --effort; Haiku 5.5 is the first that takes it.
+    if [[ "${__cc_model:l}" == (*haiku-4*|*-3-haiku*|*-3-5-haiku*) && -n "$__cc_effort" ]]; then
+      print -- "claude-cast lint: [$role] model '$__cc_model' is Haiku 4.5 or older — the --effort flag errors on it"
       warned=1
     fi
     if [[ -n "$__cc_effort" ]] && (( ! ${valid_efforts[(Ie)$__cc_effort]} )); then

@@ -80,13 +80,13 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 |---|---|---|---|
 | `driver` | `claude-opus-5-5[1m]` | `high` | — |
 | `fable` | `claude-opus-5-5[1m]` | `high` | `--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
-| `build` | `claude-opus-5-5[1m]` | `xhigh` | — |
-| `uibuild` | `claude-opus-5-5[1m]` | `xhigh` | `--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` |
-| `dgbuild` | `claude-opus-5-5[1m]` | `xhigh` | `--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
+| `build` | `claude-sonnet-5-5[1m]` | `high` | — |
+| `uibuild` | `claude-sonnet-5-5[1m]` | `high` | `--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` |
+| `dgbuild` | `claude-sonnet-5-5[1m]` | `high` | `--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `fix` | `claude-opus-5-5[1m]` | `high` | — |
 | `gate` | `claude-opus-5-5[1m]` | `xhigh` | — |
 | `chore` | `claude-sonnet-5-5[1m]` | `low` | — |
-| `fanout` | `claude-haiku-4-5` | — | — |
+| `fanout` | `claude-haiku-5-5` | `low` | — |
 | `verify` | `claude-fable-5-1[1m]` | `xhigh` | `--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` |
 | `taste` | `claude-opus-5-5[1m]` | `high` | — |
 | `orchestrate` | `claude-opus-5-5[1m]` | `high` | `--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
@@ -97,20 +97,20 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 |---|---|---|---|
 | `driver` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-sonnet-5[1m]` `high` |
 | `fable` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
-| `build` | `claude-opus-5-5[1m]` `xhigh` | `claude-opus-5-5[1m]` `high` | `claude-sonnet-5[1m]` `medium` |
-| `uibuild` | `claude-opus-5-5[1m]` `xhigh` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` |
-| `dgbuild` | `claude-opus-5-5[1m]` `xhigh` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
+| `build` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` |
+| `uibuild` | `claude-sonnet-5-5[1m]` `high` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` | `claude-sonnet-5-5[1m]` `high` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` | `claude-sonnet-5-5[1m]` `high` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` |
+| `dgbuild` | `claude-sonnet-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-sonnet-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-sonnet-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `fix` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` |
 | `gate` | `claude-opus-5-5[1m]` `xhigh` | `claude-opus-5-5[1m]` `xhigh` | `claude-opus-5-5[1m]` `high` |
 | `chore` | `claude-sonnet-5-5[1m]` `low` | `claude-haiku-4-5` | `claude-haiku-4-5` |
-| `fanout` | `claude-haiku-4-5` | `claude-haiku-4-5` | `claude-haiku-4-5` |
+| `fanout` | `claude-haiku-5-5` `low` | `claude-haiku-5-5` `low` | `claude-haiku-5-5` `low` |
 | `verify` | `claude-fable-5-1[1m]` `xhigh` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | `claude-fable-5-1[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` |
 | `taste` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` |
 | `orchestrate` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `review` | `claude-opus-5-5[1m]` `medium` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | `claude-opus-5-5[1m]` `medium` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | — |
 | `sonnet` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` |
 
-Generated from the author’s scorecard casting source, commit `9c54dff`, as of `2026-09-30`.
+Generated from the author’s scorecard casting source, commit `639402e`, as of `2026-10-11`.
 <!-- casting:end -->
 
 **This default is a snapshot, not a source of truth.** It reflects the
@@ -254,7 +254,7 @@ after `set`/`unset` specifically (they call it for you); `reload` is for
 after you edit `CLAUDE_CAST[...]` directly.
 
 `<effort>` can be `-` (or `""`) for a role that shouldn’t get an `--effort`
-flag at all — Haiku errors on `--effort`, so its row needs one of those, e.g.
+flag at all — Haiku 4.5 and older error on `--effort`, so their rows need one of those, e.g.
 `claude-cast set chore claude-haiku-4-5 -`. The same holds for a row set
 directly in `CLAUDE_CAST[...]`: `'claude-haiku-4-5|'` (empty effort field)
 or `'claude-haiku-4-5||--some-flag'` (empty effort, with extra flags) both
@@ -333,9 +333,9 @@ claude-cast version
   `pro`), one after another, regardless of which one is currently active.
 - **`lint`** — warns on: a bare alias model name (`fable`, `opus`, `sonnet`,
   `haiku`, `best`, `default` — see [Why full model
-  IDs](#why-full-model-ids)); any Haiku-model row that sets a *non-empty*
-  effort (the `--effort` flag errors on Haiku — an empty effort field is
-  exactly how a Haiku row avoids the warning, see
+  IDs](#why-full-model-ids)); any Haiku 4.5-or-older row that sets a *non-empty*
+  effort (the `--effort` flag errors on those; Haiku 5.5 is the first Haiku
+  that takes it — an empty effort field is exactly how such a row avoids the warning, see
   [Overriding](#overriding)); an effort value outside
   `low`/`medium`/`high`/`xhigh`/`max` (an empty effort is exempt from this
   one too). Exits 1 if it found anything to warn about, 0 otherwise — wire
