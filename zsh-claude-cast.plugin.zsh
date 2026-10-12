@@ -83,7 +83,7 @@ typeset -gA _CLAUDE_CAST_AGENTS_FROM_DEFAULT # agent -> 1 when filled from the s
 # --effort flag at all — required for Haiku 4.5 and older, which error on --effort
 # (Haiku 5.5 is the first Haiku that takes it).
 
-# casting:begin (generated from claude-ops casting.json @ 639402e 2026-10-11 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ 5d0913b 2026-10-11 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
@@ -94,7 +94,7 @@ uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file
 dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|xhigh
-chore	claude-sonnet-5-5[1m]|low
+chore	claude-sonnet-5-5[1m]|low|--settings ~/.claude/guards/go-gate.json
 fanout	claude-haiku-5-5|low
 verify	claude-fable-5-1[1m]|xhigh|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
 taste	claude-opus-5-5[1m]|high
@@ -114,7 +114,7 @@ uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file
 dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|xhigh
-chore	claude-haiku-4-5|
+chore	claude-haiku-4-5||--settings ~/.claude/guards/go-gate.json
 fanout	claude-haiku-5-5|low
 verify	claude-fable-5-1[1m]|high|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
 taste	claude-opus-5-5[1m]|high
@@ -134,7 +134,7 @@ uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file
 dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|high
-chore	claude-haiku-4-5|
+chore	claude-haiku-4-5||--settings ~/.claude/guards/go-gate.json
 fanout	claude-haiku-5-5|low
 verify	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
 taste	claude-opus-5-5[1m]|high
