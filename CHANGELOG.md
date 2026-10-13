@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 — 2026-10-13
 
+- **The `fable` row is now `rigor`** (launcher `clfable` → `clrigor`), in every
+  preset. The row never ran the Fable model — it runs Opus with the Fable-mode
+  skill appended — so its name said a model it does not run. A user override
+  `CLAUDE_CAST[fable]=…` now defines a custom row called `fable`; rename it to
+  `CLAUDE_CAST[rigor]` to keep overriding the shipped row.
 - **Two specialist build roles: `uibuild` and `dgbuild`**, right after
   `build` in every preset, with default agent mappings `uibuilder`→`uibuild`
   and `dgbuilder`→`dgbuild`. Their `extra` launches as the matching custom

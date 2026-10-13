@@ -25,7 +25,7 @@ update after the last model release.
 ## The casting-table idea
 
 Instead of aliases like `alias cco='claude --model whatever-you-typed-in-2025'`,
-define **roles** — `driver`, `fable`, `build`, `uibuild`, `dgbuild`, `fix`,
+define **roles** — `driver`, `rigor`, `build`, `uibuild`, `dgbuild`, `fix`,
 `gate`, `chore`, `fanout`, `verify`, `taste`, `orchestrate`, `review`,
 `sonnet` — each mapped to a `model|effort|extra-flags` triple in one zsh
 associative array, `CLAUDE_CAST`. The plugin *projects* that table into real
@@ -79,7 +79,7 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | role | model | effort | extra |
 |---|---|---|---|
 | `driver` | `claude-opus-5-5[1m]` | `high` | — |
-| `fable` | `claude-opus-5-5[1m]` | `high` | `--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
+| `rigor` | `claude-opus-5-5[1m]` | `high` | `--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `build` | `claude-sonnet-5-5[1m]` | `high` | — |
 | `uibuild` | `claude-sonnet-5-5[1m]` | `high` | `--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` |
 | `dgbuild` | `claude-sonnet-5-5[1m]` | `high` | `--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
@@ -96,7 +96,7 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | role | max20 | max5 | pro |
 |---|---|---|---|
 | `driver` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-sonnet-5[1m]` `high` |
-| `fable` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
+| `rigor` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `build` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` |
 | `uibuild` | `claude-sonnet-5-5[1m]` `high` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` | `claude-sonnet-5-5[1m]` `high` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` | `claude-sonnet-5-5[1m]` `high` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` |
 | `dgbuild` | `claude-sonnet-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-sonnet-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-sonnet-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
@@ -110,7 +110,7 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `review` | `claude-opus-5-5[1m]` `medium` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | `claude-opus-5-5[1m]` `medium` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | — |
 | `sonnet` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` |
 
-Generated from the author’s scorecard casting source, commit `2e185e4`, as of `2026-10-11`.
+Generated from the author’s scorecard casting source, commit `4e210ee`, as of `2026-10-13`.
 <!-- casting:end -->
 
 **This default is a snapshot, not a source of truth.** It reflects the
@@ -145,10 +145,10 @@ plan, so `zsh-claude-cast` ships two more, selected by `CLAUDE_CAST_PRESET`
   and `build` (Fable draws from a 50% weekly bucket on this plan, not
   unlimited quota), and Fable 5.1 is reserved for `verify` and `taste` —
   the two roles the maintainer’s battery found no Opus-plus-skill crossover
-  for. `fable` and `orchestrate` get Fable-mode rigor a different way: Opus
+  for. `rigor` and `orchestrate` get Fable-mode rigor a different way: Opus
   5.5 with the fable-mode skill appended (see [Why `fable` and
   `orchestrate` run Opus, not
-  Fable](#why-fable-and-orchestrate-run-opus-not-fable)).
+  Fable](#why-rigor-and-orchestrate-run-opus-not-fable)).
 - **`max5`** — Claude Max 5x. Same shape as `max20`, one tier down on
   `chore`: it drops to `claude-haiku-4-5` (no effort) instead of a cheap
   Sonnet pass.
@@ -184,10 +184,11 @@ Run `claude-cast presets` to print all three tables at once, and
 `claude-cast list` to see the active preset and anything you overrode from
 it, e.g. `preset: pro (overridden: chore)`.
 
-## Why `fable` and `orchestrate` run Opus, not Fable
+## Why `rigor` and `orchestrate` run Opus, not Fable
 
-The shipped `fable` and `orchestrate` rows don’t run the Fable model at
-all — they run `claude-opus-5-5[1m]` with a third `|`-separated field, an
+The shipped `rigor` and `orchestrate` rows don’t run the Fable model at
+all (the `rigor` row was called `fable` before 0.7.0; the name said a
+model it never ran) — they run `claude-opus-5-5[1m]` with a third `|`-separated field, an
 `extra` flags string: `--append-system-prompt-file
 ~/.claude/skills/fable-mode/SKILL.md`. That’s the maintainer’s own
 Fable-mode skill, appended at launch to give Opus Fable’s planning and
@@ -201,7 +202,7 @@ at your own system-prompt file (or any other flags), or blank it to run a
 plain row with no third field:
 
 ```sh
-CLAUDE_CAST[fable]='claude-opus-4-8[1m]|high|--append-system-prompt-file ~/my-skill/SKILL.md'
+CLAUDE_CAST[rigor]='claude-opus-4-8[1m]|high|--append-system-prompt-file ~/my-skill/SKILL.md'
 CLAUDE_CAST[orchestrate]='claude-opus-4-8[1m]|high'   # no extra field: bare Opus
 ```
 
@@ -280,7 +281,7 @@ Plus two fixed helpers, not tied to any role:
 | `cl` | `command claude "$@"` — bare, whatever `settings.json` says, deliberately not cast |
 | `clr` | `command claude --continue "$@"` |
 
-With the default table and prefix, that’s `cldriver`, `clfable`, `clbuild`,
+With the default table and prefix, that’s `cldriver`, `clrigor`, `clbuild`,
 `cluibuild`, `cldgbuild`, `clfix`, `clgate`, `clchore`, `clfanout`, `clverify`, `cltaste`,
 `clorchestrate`, `clreview`, `clsonnet` (plus their `clp*` headless twins),
 `cl`, and `clr`.
@@ -315,7 +316,7 @@ claude-cast version
 - **`which <launcher-or-role>`** — prints the exact command line a launcher
   runs, e.g. `claude-cast which build` or `claude-cast which clbuild` both
   print `command claude --model claude-opus-5-5[1m] --effort xhigh`; a role
-  with an `extra` field (e.g. `claude-cast which fable`) shows it appended,
+  with an `extra` field (e.g. `claude-cast which rigor`) shows it appended,
   with any leading `~` already expanded to `$HOME`.
 - **`set` / `unset`** — see [Overriding](#overriding).
 - **`argv <role>`** — prints the launch arguments a role resolves to, one

@@ -6,7 +6,7 @@
 # external commands — `cat` for the shipped preset/agent heredocs and, in
 # `claude-cast doctor`, `git`/`ps`/`sleep` for the bounded chezmoi-lag fetch.
 
-typeset -g CLAUDE_CAST_VERSION="0.6.0"
+typeset -g CLAUDE_CAST_VERSION="0.7.0"
 
 # ---------------------------------------------------------------------------
 # Config knobs (set these — or CLAUDE_CAST[role]=… entries — BEFORE sourcing
@@ -83,12 +83,12 @@ typeset -gA _CLAUDE_CAST_AGENTS_FROM_DEFAULT # agent -> 1 when filled from the s
 # --effort flag at all — required for Haiku 4.5 and older, which error on --effort
 # (Haiku 5.5 is the first Haiku that takes it).
 
-# casting:begin (generated from claude-ops casting.json @ 2e185e4 2026-10-11 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ 4e210ee 2026-10-13 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
 driver	claude-opus-5-5[1m]|high
-fable	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+rigor	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-sonnet-5-5[1m]|high
 uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
 dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
@@ -108,7 +108,7 @@ EOF
 _claude_cast_default_table_max5() {
   cat <<'EOF'
 driver	claude-opus-5-5[1m]|high
-fable	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+rigor	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-sonnet-5-5[1m]|high
 uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
 dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
@@ -128,7 +128,7 @@ EOF
 _claude_cast_default_table_pro() {
   cat <<'EOF'
 driver	claude-sonnet-5[1m]|high
-fable	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+rigor	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-sonnet-5-5[1m]|high
 uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
 dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md

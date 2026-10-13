@@ -534,7 +534,7 @@ assert_contains "claude-cast which prints the tilde-expanded form" "/home/tester
 assert_not_contains "claude-cast which does not print the unexpanded ~" "~/skills/foo/SKILL.md" "$out"
 
 # ---------------------------------------------------------------------------
-# 22. a shipped max20 row carrying a real extra flag with a leading ~ (fable,
+# 22. a shipped max20 row carrying a real extra flag with a leading ~ (rigor,
 #     today — orchestrate too) expands it against the actual $HOME of whoever
 #     sources the plugin. The first such row in table order is used: its raw ~
 #     word, the $HOME-expanded form, and the argv token just before it.
