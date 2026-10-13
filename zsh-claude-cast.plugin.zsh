@@ -6,7 +6,7 @@
 # external commands — `cat` for the shipped preset/agent heredocs and, in
 # `claude-cast doctor`, `git`/`ps`/`sleep` for the bounded chezmoi-lag fetch.
 
-typeset -g CLAUDE_CAST_VERSION="0.7.0"
+typeset -g CLAUDE_CAST_VERSION="0.7.1"
 
 # ---------------------------------------------------------------------------
 # Config knobs (set these — or CLAUDE_CAST[role]=… entries — BEFORE sourcing
@@ -83,7 +83,7 @@ typeset -gA _CLAUDE_CAST_AGENTS_FROM_DEFAULT # agent -> 1 when filled from the s
 # --effort flag at all — required for Haiku 4.5 and older, which error on --effort
 # (Haiku 5.5 is the first Haiku that takes it).
 
-# casting:begin (generated from claude-ops casting.json @ 4e210ee 2026-10-13 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ 7b6f62c 2026-10-13 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
@@ -92,7 +92,7 @@ rigor	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fabl
 build	claude-sonnet-5-5[1m]|high
 uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
 dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
-fix	claude-opus-5-5[1m]|high
+fix	claude-opus-5-5[1m]|medium
 gate	claude-opus-5-5[1m]|xhigh
 chore	claude-sonnet-5-5[1m]|low
 fanout	claude-haiku-5-5|low
@@ -112,7 +112,7 @@ rigor	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fabl
 build	claude-sonnet-5-5[1m]|high
 uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
 dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
-fix	claude-opus-5-5[1m]|high
+fix	claude-opus-5-5[1m]|medium
 gate	claude-opus-5-5[1m]|xhigh
 chore	claude-haiku-4-5|
 fanout	claude-haiku-5-5|low
@@ -132,7 +132,7 @@ rigor	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fabl
 build	claude-sonnet-5-5[1m]|high
 uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
 dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
-fix	claude-opus-5-5[1m]|high
+fix	claude-opus-5-5[1m]|medium
 gate	claude-opus-5-5[1m]|high
 chore	claude-haiku-4-5|
 fanout	claude-haiku-5-5|low

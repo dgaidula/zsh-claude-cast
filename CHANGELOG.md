@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1 — 2026-10-13
+
+- **`fix` row at `medium`** in every preset (from `high`): the maintainer’s
+  fix-pass battery found Opus 5.5 `medium` as clean as `high` on a fix list at
+  11–30 % less cost. On probation; override with `CLAUDE_CAST[fix]=…|high`.
+
 ## 0.7.0 — 2026-10-13
 
 - **The `fable` row is now `rigor`** (launcher `clfable` → `clrigor`), in every
