@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.2 — 2026-10-13
+
+- **`doctor` and the launch guard under a non-default preset:** the shipped
+  agent files are generated from `max20` only, so under `pro` or `max5` a
+  file matching `max20`’s row for a role that preset casts differently is now
+  reported as projected and skipped, not as drift. `doctor` names the preset
+  it compared against (`preset=<p> projected=<n>` in `--brief`). A file
+  matching neither table is still drift.
+
 ## 0.7.1 — 2026-10-13
 
 - **`fix` row at `medium`** in every preset (from `high`): the maintainer’s

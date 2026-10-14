@@ -915,6 +915,41 @@ assert_contains "an unknown-role user mapping is drift (exit 1)" "rc=1" "$out"
 rm -rf "$PRO_AGENTS"
 
 # ---------------------------------------------------------------------------
+# 32b. the shipped agent files are the max20 projection: under pro, a file that
+#      matches max20's row for a role pro casts differently is reported as
+#      projected (not drift), and doctor names the preset it compared against;
+#      a file matching neither table is still drift; the launch guard is quiet.
+# ---------------------------------------------------------------------------
+_proj=()
+for _a in ${=SHIPPED_AGENT_NAMES}; do
+  _r=${SHIPPED_AGENTS[$_a]}
+  [[ -n "${SHIPPED[pro:$_r]+x}" ]] || continue
+  want_agent max20 $_r; _m20="$WANT_MODEL|$WANT_EFFORT"
+  want_agent pro $_r; [[ "$WANT_MODEL|$WANT_EFFORT" != "$_m20" ]] && _proj+=("$_a")
+done
+if (( ${#_proj} )); then
+  M20_AGENTS="$(mktemp -d)"; make_clean_agents_dir "$M20_AGENTS"
+  out=$(run_zsh "CLAUDE_CAST_PRESET=pro; PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$M20_AGENTS'; source '${PLUGIN}'; claude-cast doctor; print rc=\$?")
+  assert_contains "doctor under pro with the shipped max20 files is OK" "claude-cast doctor: OK" "$out"
+  assert_contains "doctor under pro with the shipped max20 files exits 0" "rc=0" "$out"
+  assert_contains "doctor names the preset it compared against" "compared against preset pro; ${#_proj} file(s) are the max20 projection" "$out"
+  for _a in "${_proj[@]}"; do
+    assert_contains "${_a}.md (max20 row, pro differs) is reported as skipped" "agents: ${_a}.md skipped — matches max20" "$out"
+  done
+  out=$(run_zsh "CLAUDE_CAST_PRESET=pro; PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$M20_AGENTS'; source '${PLUGIN}'; claude-cast doctor --brief")
+  assert_contains "doctor --brief carries the preset and the projected count" "preset=pro projected=${#_proj}" "$out"
+  out=$(run_zsh "CLAUDE_CAST_PRESET=pro; PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$M20_AGENTS'; source '${PLUGIN}'; clbuild 2>&1 >/dev/null")
+  assert_not_contains "the launch guard under pro is quiet on the max20 projection" "drift before launch" "$out"
+  write_agent_md "$M20_AGENTS" "${_proj[1]}" "$DRIFT_MODEL" low
+  out=$(run_zsh "CLAUDE_CAST_PRESET=pro; PATH=$NOCZ_BIN; export CLAUDE_CAST_AGENTS_DIR='$M20_AGENTS'; source '${PLUGIN}'; claude-cast doctor --brief; print rc=\$?")
+  assert_contains "under pro, a file matching neither table is still drift" "DRIFT" "$out"
+  assert_contains "under pro, that drift exits 1" "rc=1" "$out"
+  rm -rf "$M20_AGENTS"
+else
+  print -u2 -- "  SKIP - max20 projection under pro (the shipped tables agree on every mapped role)"
+fi
+
+# ---------------------------------------------------------------------------
 # 33. interactive launch-guard branch (pty). The launchers' `ask` prompt only
 #     fires when stdin AND stderr are terminals — a branch these piped tests
 #     can't reach — so test/pty.zsh drives it under a real pseudo-terminal

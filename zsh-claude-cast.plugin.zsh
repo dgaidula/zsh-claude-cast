@@ -6,7 +6,7 @@
 # external commands — `cat` for the shipped preset/agent heredocs and, in
 # `claude-cast doctor`, `git`/`ps`/`sleep` for the bounded chezmoi-lag fetch.
 
-typeset -g CLAUDE_CAST_VERSION="0.7.1"
+typeset -g CLAUDE_CAST_VERSION="0.7.2"
 
 # ---------------------------------------------------------------------------
 # Config knobs (set these — or CLAUDE_CAST[role]=… entries — BEFORE sourcing
@@ -453,6 +453,14 @@ _claude_cast_agent_check() {
   _CLAUDE_CAST_AGENT_FILES_SEEN=0
   local -a agents=("${(@ok)CLAUDE_CAST_AGENTS}")
   local agent role file want_model want_effort have_model have_effort
+  # The shipped agent files are projected from max20 only. Under another preset a
+  # file that matches max20's row for a role the active preset casts differently
+  # is "projected" (reported, not drift); one matching neither is still drift.
+  local -A max20=()
+  local r s
+  if [[ "$_CLAUDE_CAST_ACTIVE_PRESET" != max20 ]]; then
+    while IFS=$'\t' read -r r s; do max20[$r]="$s"; done < <(_claude_cast_default_table_max20)
+  fi
   for agent in "${agents[@]}"; do
     role="${CLAUDE_CAST_AGENTS[$agent]}"
     # An agent mapped to the empty string is a per-agent opt-out: skip silently.
@@ -484,6 +492,13 @@ _claude_cast_agent_check() {
     local -a diffs=()
     [[ "$have_model" != "$want_model" ]] && diffs+=("model have=${have_model:-<none>} want=${want_model}")
     [[ "$have_effort" != "$want_effort" ]] && diffs+=("effort have=${have_effort:-<none>} want=${want_effort:-<none>}")
+    if (( ${#diffs} )) && [[ -n "${max20[$role]}" && ${_CLAUDE_CAST_OVERRIDDEN_ROLES[(Ie)$role]} == 0 ]]; then
+      _claude_cast_parse_spec "${max20[$role]}"
+      if [[ "$have_model" == "${__cc_model%\[*\]}" && "$have_effort" == "$__cc_effort" ]]; then
+        _CLAUDE_CAST_AGENT_RESULTS+=("projected"$'\t'"$agent"$'\t'"matches max20, the preset agent files are projected from; ${_CLAUDE_CAST_ACTIVE_PRESET} casts ${role} as ${want_model}${want_effort:+ [$want_effort]}")
+        continue
+      fi
+    fi
     if (( ${#diffs} )); then
       _CLAUDE_CAST_AGENT_RESULTS+=("mismatch"$'\t'"$agent"$'\t'"${(j:; :)diffs}")
     else
@@ -807,7 +822,7 @@ _claude_cast_cmd_doctor() {
     esac
   done
 
-  local drift=0 warn=0
+  local drift=0 warn=0 projected=0
   local -a lines=() brief_drift=()
 
   # 1. lint (existing).
@@ -844,6 +859,11 @@ _claude_cast_cmd_doctor() {
     detail="${rest#*$'\t'}"
     case "$st" in
       ok) lines+=("agents: ${agent}.md ok") ;;
+      projected)
+        # Not drift: the file is the max20 projection; the active preset differs by design.
+        (( projected++ ))
+        lines+=("agents: ${agent}.md skipped — ${detail}")
+        ;;
       mismatch)
         drift=1
         brief_drift+=("${agent}.md ${detail}")
@@ -869,6 +889,10 @@ _claude_cast_cmd_doctor() {
         ;;
     esac
   done
+  if (( projected )); then
+    lines+=("agents: compared against preset ${_CLAUDE_CAST_ACTIVE_PRESET}; ${projected} file(s) are the max20 projection and were skipped, not drift (agent files are generated from max20 only)")
+    agents_brief+=" preset=${_CLAUDE_CAST_ACTIVE_PRESET} projected=${projected}"
+  fi
 
   # 3. chezmoi lag.
   local chezmoi_brief="skipped"
