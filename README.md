@@ -130,9 +130,10 @@ write` (a dry run) and the `--go --plan <hex>` it advises render it into this RE
 `zsh-claude-cast.plugin.zsh` itself, and into the author’s global Claude
 Code instructions, stamping each block with the source commit and date.
 `check` re-renders every block in memory and fails if any of them
-disagrees with `casting.json` — it runs in the author’s release routine
-before a version is tagged, so a hand-edited table inside the markers (or a
-scorecard change nobody projected) can’t ship unnoticed. Projections all the
+disagrees with `casting.json` — the author’s weekly harness review runs it
+(`claude-ops/routines/casting-check.sh`) and reports any drift, so a
+hand-edited table inside the markers (or a scorecard change nobody
+projected) can’t go unnoticed for more than a week. Projections all the
 way down.
 
 ## Plan presets
