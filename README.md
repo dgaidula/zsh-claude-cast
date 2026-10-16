@@ -126,7 +126,7 @@ The tables between the `<!-- casting:begin -->` / `<!-- casting:end -->`
 markers above aren’t hand-copied from the scorecard — they’re *generated*
 from it. `claude-ops/casting.json` (the author’s private scorecard repo) is
 the one machine-readable casting source; `claude-ops/routines/project-casting.mjs
-write --go` renders it into this README, into the matching markers in
+write` (a dry run) and the `--go --plan <hex>` it advises render it into this README, into the matching markers in
 `zsh-claude-cast.plugin.zsh` itself, and into the author’s global Claude
 Code instructions, stamping each block with the source commit and date.
 `check` re-renders every block in memory and fails if any of them
