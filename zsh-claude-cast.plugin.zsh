@@ -2,11 +2,12 @@
 #
 # Works via oh-my-zsh, plain `source`, zinit, and antidote. See README.md for
 # install instructions and CLAUDE.md for the internals. The generated
-# launchers shell out to nothing but `claude`; the plugin itself uses a few
+# launchers shell out to nothing but `claude` (and, on macOS, `caffeinate`
+# when it is installed — see CLAUDE_CAST_CAFFEINATE); the plugin itself uses a few
 # external commands — `cat` for the shipped preset/agent heredocs and, in
 # `claude-cast doctor`, `git`/`ps`/`sleep` for the bounded chezmoi-lag fetch.
 
-typeset -g CLAUDE_CAST_VERSION="0.7.2"
+typeset -g CLAUDE_CAST_VERSION="0.8.0"
 
 # ---------------------------------------------------------------------------
 # Config knobs (set these — or CLAUDE_CAST[role]=… entries — BEFORE sourcing
@@ -20,6 +21,11 @@ typeset -g CLAUDE_CAST_VERSION="0.7.2"
 # Launch-time agent-definition check: warn (default) | ask | off — see the
 # agent check below and README.md "Agent definitions and the launch check".
 : ${CLAUDE_CAST_LAUNCH_CHECK:=warn}
+# Keep the Mac awake (idle sleep) while a launcher's claude runs: 1 (default)
+# holds a `caffeinate -i` assertion on macOS when caffeinate is installed; 0 turns
+# it off. Read at launch time, so it can be flipped in a live shell. Linux and
+# a Mac without caffeinate are unchanged either way.
+: ${CLAUDE_CAST_CAFFEINATE:=1}
 
 # Resolves CLAUDE_CAST_PRESET to one of the shipped preset tables (max20,
 # max5, pro), falling back to max20 — with a stderr note — on anything else.
@@ -279,6 +285,32 @@ _claude_cast_display_cmdline() {
   print -r -- "$out"
 }
 
+# Runs claude with the given arguments — every generated launcher ends here,
+# after the launch guard. On macOS with an external `caffeinate` on PATH (and
+# CLAUDE_CAST_CAFFEINATE not 0) it starts `caffeinate -i -w $$` in the
+# background, runs claude in the foreground, then kills that caffeinate and
+# returns claude's exit status; everywhere else it is plain `command claude`.
+# caffeinate is not a wrapper on purpose: its argv must not carry claude's
+# arguments, or `pgrep -f` on any prompt text would match it. The check is at
+# launch time, not load time, so a changed PATH or knob takes effect at once.
+_claude_cast_exec() {
+  if [[ "${CLAUDE_CAST_CAFFEINATE:-1}" != 0 && "$OSTYPE" == darwin* ]] \
+      && whence -p caffeinate >/dev/null 2>&1; then
+    local caff_pid rc
+    command caffeinate -i -w $$ </dev/null >/dev/null 2>&1 &!
+    caff_pid=$!
+    {
+      command claude "$@"
+      rc=$?
+    } always {
+      kill $caff_pid 2>/dev/null
+    }
+    return $rc
+  else
+    command claude "$@"
+  fi
+}
+
 # Defines (or skips) one launcher function.
 #   _claude_cast_define_launcher <name> <headless:0|1> <model> <effort> [extra...]
 _claude_cast_define_launcher() {
@@ -293,17 +325,19 @@ _claude_cast_define_launcher() {
   # Same resolution path as `claude-cast argv` (--model/--effort/extra, with any
   # leading "~" in an extra flag expanded to $HOME at launch time).
   _claude_cast_resolve_argv "$model" "$effort" "$@"
-  local -a fixed=(command claude "${__cc_argv[@]}")
-  local -a display=("${fixed[@]}")
+  local -a fixed=("${__cc_argv[@]}")
+  local -a display=(command claude "${__cc_argv[@]}")
   if [[ "$headless" == 1 ]]; then
     fixed+=("${CLAUDE_CAST_HEADLESS_FLAGS[@]}")
     display+=("${CLAUDE_CAST_HEADLESS_FLAGS[@]}")
   fi
 
-  # The launch-time agent check runs before `command claude` (see
+  # The launch-time agent check runs before claude starts (see
   # _claude_cast_launch_guard); on a mismatch it can abort with a non-zero code.
+  # `display` keeps showing the plain `command claude …` line; the caffeinate
+  # step happens inside _claude_cast_exec at launch time.
   local body="$(print -r -- ${(q@)fixed})"
-  eval "function $name { _claude_cast_launch_guard || return; $body \"\$@\"; }"
+  eval "function $name { _claude_cast_launch_guard || return; _claude_cast_exec $body \"\$@\"; }"
   _CLAUDE_CAST_GENERATED[$name]=1
   _CLAUDE_CAST_LAUNCHER_CMD[$name]="$(_claude_cast_display_cmdline "${display[@]}")"
 
@@ -320,7 +354,7 @@ _claude_cast_generate_fixed() {
   if _claude_cast_should_skip "$plain"; then
     _CLAUDE_CAST_SKIPPED+=("$plain")
   else
-    eval "function $plain { _claude_cast_launch_guard || return; command claude \"\$@\"; }"
+    eval "function $plain { _claude_cast_launch_guard || return; _claude_cast_exec \"\$@\"; }"
     _CLAUDE_CAST_GENERATED[$plain]=1
     _CLAUDE_CAST_LAUNCHER_CMD[$plain]="command claude"
     if (( ${+functions[compdef]} )) && (( ${+functions[_claude]} )); then
@@ -331,7 +365,7 @@ _claude_cast_generate_fixed() {
   if _claude_cast_should_skip "$cont"; then
     _CLAUDE_CAST_SKIPPED+=("$cont")
   else
-    eval "function $cont { _claude_cast_launch_guard || return; command claude --continue \"\$@\"; }"
+    eval "function $cont { _claude_cast_launch_guard || return; _claude_cast_exec --continue \"\$@\"; }"
     _CLAUDE_CAST_GENERATED[$cont]=1
     _CLAUDE_CAST_LAUNCHER_CMD[$cont]="command claude --continue"
     if (( ${+functions[compdef]} )) && (( ${+functions[_claude]} )); then
@@ -972,6 +1006,7 @@ Active preset: ${_CLAUDE_CAST_ACTIVE_PRESET} (CLAUDE_CAST_PRESET, set before sou
 Generated per role <r>: ${CLAUDE_CAST_PREFIX}<r> and ${CLAUDE_CAST_PREFIX}p<r> (headless).
 Fixed helpers: ${CLAUDE_CAST_PREFIX} (bare claude), ${CLAUDE_CAST_PREFIX}r (claude --continue).
 Launch-time agent check: CLAUDE_CAST_LAUNCH_CHECK=warn (default) | ask | off.
+macOS: launchers hold a `caffeinate -i` assertion while claude runs, when installed (CLAUDE_CAST_CAFFEINATE=0 to disable).
 EOF
 }
 

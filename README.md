@@ -293,6 +293,22 @@ plugin, or a prior `zsh-claude-cast` load — it’s skipped, and the plugin
 prints one summary line at load naming everything it skipped. Set
 `CLAUDE_CAST_FORCE=1` before sourcing to override and take the name anyway.
 
+**Staying awake on a Mac.** On macOS, when `caffeinate` is installed, every
+generated launcher (the `cl<role>` and `clp<role>` pair, `cl` and `clr`)
+starts `caffeinate -i -w <shell pid>` in the background and runs claude in the
+foreground: macOS holds off idle sleep for as long as the session lives, the
+launcher kills caffeinate when claude exits, and claude’s exit status passes
+through. caffeinate’s command line carries none of claude’s arguments, so
+`pgrep -f` on prompt text does not match it. A long headless run no longer dies when the
+machine decides it has been idle. `-i` blocks only idle sleep; closing the lid
+or running down the battery still stops the machine, and nothing here changes
+that. On Linux, or on a Mac without `caffeinate` on `PATH`, the launchers run
+plain `command claude`, exactly as before. `claude-cast which` and `list` keep
+showing the claude command line without the wrapper.
+
+To turn it off, `export CLAUDE_CAST_CAFFEINATE=0`. The variable is read each time
+a launcher runs, so setting it in a live shell takes effect on the next launch.
+
 ## `claude-cast` subcommands
 
 ```
@@ -520,7 +536,9 @@ Dependency-free — the suite puts a stub `claude` script first on `PATH`
 (prints its argv, one token per line) and drives the plugin against it in
 hermetic `zsh -f` subprocesses. The one exception: `export`‘s JSON output is
 validated with `node -e`, since parsing JSON correctly is not something to
-hand-roll in shell.
+hand-roll in shell. A stub `caffeinate` sits beside the stub `claude`, so a Mac
+never reaches the real one and the caffeinate cases pick their platform by
+setting `OSTYPE` inside the snippet.
 
 `run.zsh`’s last section runs `test/pty.zsh`, which covers the one branch the
 piped tests can’t reach: the `ask` launch guard’s `launch anyway? [y/N]`

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.8.0 — 2026-10-18
+
+- **Launchers hold a `caffeinate -i` assertion on macOS.** Long runs were
+  dying to idle sleep. Every generated launcher — `cl<role>`, `clp<role>`, `cl`
+  and `clr` — now ends in one helper, `_claude_cast_exec`, which starts
+  `caffeinate -i -w $$` in the background, runs claude in the foreground and
+  kills caffeinate after it (passing claude’s exit status through) when
+  `$OSTYPE` is darwin and an external `caffeinate` is on `PATH`, and plain
+  `command claude …` everywhere else (Linux, a Mac
+  without it). The check happens at launch, not at load. `CLAUDE_CAST_CAFFEINATE=0`
+  turns it off. caffeinate is deliberately not a wrapper: its
+  command line carries no claude arguments, so `pgrep -f` on prompt text
+  cannot match it. The launch guard still runs first, `which`/`list`/`argv`
+  output is unchanged, and the claude command line is byte-for-byte what it
+  was. `-i` stops idle sleep only; lid-close and battery sleep are not covered.
+- **Tests:** 22 new cases (196 in all) with a stub `caffeinate` beside the stub
+  `claude`; Darwin versus Linux is chosen by setting `OSTYPE` in the snippet.
+
 ## 0.7.2 — 2026-10-13
 
 - **`doctor` and the launch guard under a non-default preset:** the shipped

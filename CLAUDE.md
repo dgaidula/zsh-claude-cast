@@ -106,6 +106,18 @@ in the file, and it’s safe because every token being quoted came from
 `CLAUDE_CAST` (a value the user/config controls), not from `"$@"` at call
 time, which is appended unexpanded as a literal `"$@"` in the function body.
 
+The launcher body no longer holds `command claude`: it calls
+`_claude_cast_exec <argv…> "$@"`, which, when `$OSTYPE` is darwin, an external
+`caffeinate` is on PATH (`whence -p`) and `CLAUDE_CAST_CAFFEINATE` isn’t 0,
+starts `caffeinate -i -w $$` in the background (`&!`), runs `command claude …`
+in the foreground, kills that caffeinate in an `always` block and returns
+claude’s status; else plain `command claude …`. Don’t turn it back into a
+`caffeinate -i claude …` wrapper: the wrapper’s argv carries the prompt, so
+`pgrep -f` on prompt text matches it. The `display` array
+(`which`/`list`) deliberately still says `command claude …`. Tests pick the
+platform with `OSTYPE=…` in the snippet and use a stub `caffeinate` in
+`STUB_DIR`, so a Mac host never reaches the real one.
+
 Collision handling: `_claude_cast_should_skip` checks the plugin’s own
 `_CLAUDE_CAST_GENERATED` registry FIRST — a name we generated ourselves is
 always safe to redefine (that’s how `reload`/`set`/`unset` work) — and only

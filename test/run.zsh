@@ -41,6 +41,23 @@ done
 STUB
 chmod +x "$STUB_DIR/claude"
 
+# A stub `caffeinate` in the same dir, so a Mac host never reaches the real
+# one: it appends its PID to $CAFF_PIDS and its own argv to $CAFF_LOG (each only
+# when set), then, like the real tool minus the assertion, execs a utility if
+# given one or else waits until the `-w` process exits. Launchers only start
+# it when OSTYPE says darwin, which the caffeinate section below sets inside
+# its snippets.
+cat > "$STUB_DIR/caffeinate" <<'STUB'
+#!/usr/bin/env zsh
+[[ -n "$CAFF_PIDS" ]] && print -r -- $$ >> "$CAFF_PIDS"
+[[ -n "$CAFF_LOG" ]] && print -r -- "caffeinate $*" >> "$CAFF_LOG"
+w=
+while [[ "$1" == -* ]]; do [[ "$1" == -w ]] && { w=$2; shift; }; shift; done
+(( $# )) && exec "$@"
+while [[ -n "$w" ]] && kill -0 "$w" 2>/dev/null; do sleep 0.1; done
+STUB
+chmod +x "$STUB_DIR/caffeinate"
+
 typeset -i PASS=0 FAIL=0
 typeset -a FAILURES=()
 
@@ -948,6 +965,92 @@ if (( ${#_proj} )); then
 else
   print -u2 -- "  SKIP - max20 projection under pro (the shipped tables agree on every mapped role)"
 fi
+
+# ---------------------------------------------------------------------------
+# 32b. caffeinate: on macOS, with caffeinate on PATH, every generated launcher
+#      starts `caffeinate -i -w $$` in the background, runs claude in the
+#      foreground, kills caffeinate after and returns claude's exit status.
+#      caffeinate's argv carries none of claude's arguments (else `pgrep -f`
+#      on prompt text matches it). Linux, a Mac without caffeinate and
+#      CLAUDE_CAST_CAFFEINATE=0 are unchanged. The stub caffeinate logs its
+#      argv to $CAFF_LOG and its PID to $CAFF_PIDS; a claude stub in CAFF_BIN
+#      waits for that PID (so the log is never racing the kill), records the
+#      live caffeinate's `ps` argv to $CAFF_PS, and exits with $CLAUDE_RC.
+#      OSTYPE is set in the snippet to pick the platform.
+# ---------------------------------------------------------------------------
+CAFF_LOG="$(mktemp)"
+CAFF_PIDS="$(mktemp)"
+CAFF_PS="$(mktemp)"
+NOCAFF_BIN="$(mktemp -d)"
+ln -s "$STUB_DIR/claude" "$NOCAFF_BIN/claude"
+ln -s "$(command -v zsh)" "$NOCAFF_BIN/zsh"
+CAFF_BIN="$(mktemp -d)"
+cat > "$CAFF_BIN/claude" <<STUB
+#!/usr/bin/env zsh
+for i in {1..60}; do [[ -s "\$CAFF_PIDS" ]] && break; sleep 0.05; done
+[[ -s "\$CAFF_PIDS" ]] && ps -o args= -p "\$(tail -1 "\$CAFF_PIDS")" >> "\$CAFF_PS"
+"$STUB_DIR/claude" "\$@"
+exit \${CLAUDE_RC:-0}
+STUB
+chmod +x "$CAFF_BIN/claude"
+caff_log() { cat "$CAFF_LOG" 2>/dev/null; : > "$CAFF_LOG"; : > "$CAFF_PIDS"; }
+caff_ps() { cat "$CAFF_PS" 2>/dev/null; : > "$CAFF_PS"; }
+CAFF_ENV="export CAFF_LOG='$CAFF_LOG' CAFF_PIDS='$CAFF_PIDS' CAFF_PS='$CAFF_PS'; PATH='$CAFF_BIN':\$PATH"
+_caff_line='caffeinate -i -w N'
+caff_shape() { local l; l=$(caff_log); print -r -- "${l//<->/N}"; }
+
+out=$(run_zsh "$CAFF_ENV; OSTYPE=darwin24.0; source '${PLUGIN}'; clbuild foo")
+assert_eq "caffeinate (darwin): claude still gets exactly the build row's argv" "$(expected_argv "${SHIPPED[max20:build]}" foo)" "$out"
+assert_eq "caffeinate (darwin): clbuild starts caffeinate -i -w <shell pid> beside claude" "$_caff_line" "$(caff_shape)"
+_ps=$(caff_ps)
+assert_contains "caffeinate (darwin): the live caffeinate process was seen" "caffeinate -i -w" "$_ps"
+assert_not_contains "caffeinate (darwin): the caffeinate process argv holds no prompt text" "foo" "$_ps"
+assert_not_contains "caffeinate (darwin): the caffeinate process argv holds no claude flags" "--model" "$_ps"
+
+out=$(run_zsh "$CAFF_ENV; OSTYPE=darwin24.0; source '${PLUGIN}'; CLAUDE_RC=7 clbuild foo; print rc=\$?")
+assert_contains "caffeinate (darwin): claude's exit code passes through" "rc=7" "$out"
+caff_log >/dev/null; caff_ps >/dev/null
+
+out=$(run_zsh "$CAFF_ENV; OSTYPE=darwin24.0; source '${PLUGIN}'; clbuild foo >/dev/null; p=\$(tail -1 '$CAFF_PIDS'); for i in {1..40}; do s=\$(ps -o stat= -p \$p 2>/dev/null); [[ -z \$s || \$s == Z* ]] && break; sleep 0.05; done; [[ -z \$s || \$s == Z* ]] && print gone || print alive")
+assert_eq "caffeinate (darwin): caffeinate is gone after claude exits (shell still alive)" "gone" "$out"
+caff_log >/dev/null; caff_ps >/dev/null
+
+out=$(run_zsh "$CAFF_ENV; OSTYPE=darwin24.0; source '${PLUGIN}'; clpbuild")
+assert_eq "caffeinate (darwin): the headless clpbuild keeps its flags" "$(expected_argv "${SHIPPED[max20:build]}" -p --output-format json --setting-sources "")" "$out"
+assert_eq "caffeinate (darwin): the headless clpbuild starts caffeinate too" "$_caff_line" "$(caff_shape)"
+caff_ps >/dev/null
+
+out=$(run_zsh "$CAFF_ENV; OSTYPE=darwin24.0; source '${PLUGIN}'; cl foo")
+assert_eq "caffeinate (darwin): the bare cl starts caffeinate" "$_caff_line" "$(caff_shape)"
+out=$(run_zsh "$CAFF_ENV; OSTYPE=darwin24.0; source '${PLUGIN}'; clr foo")
+assert_contains "caffeinate (darwin): clr keeps --continue" ">--continue<" "$out"
+assert_eq "caffeinate (darwin): clr starts caffeinate" "$_caff_line" "$(caff_shape)"
+caff_ps >/dev/null
+
+out=$(run_zsh "export CAFF_LOG='$CAFF_LOG'; OSTYPE=linux-gnu; source '${PLUGIN}'; clbuild foo")
+assert_eq "caffeinate (linux): argv unchanged" "$(expected_argv "${SHIPPED[max20:build]}" foo)" "$out"
+assert_eq "caffeinate (linux): caffeinate is never called" "" "$(caff_log)"
+
+out=$(run_zsh "export CAFF_LOG='$CAFF_LOG'; OSTYPE=darwin24.0; source '${PLUGIN}'; PATH='$NOCAFF_BIN'; clbuild foo")
+assert_eq "caffeinate (darwin, not installed): launches claude unchanged" "$(expected_argv "${SHIPPED[max20:build]}" foo)" "$out"
+assert_eq "caffeinate (darwin, not installed): nothing logged" "" "$(caff_log)"
+
+out=$(run_zsh "export CAFF_LOG='$CAFF_LOG'; OSTYPE=darwin24.0; CLAUDE_CAST_CAFFEINATE=0; source '${PLUGIN}'; clbuild foo")
+assert_eq "caffeinate (CLAUDE_CAST_CAFFEINATE=0): argv unchanged" "$(expected_argv "${SHIPPED[max20:build]}" foo)" "$out"
+assert_eq "caffeinate (CLAUDE_CAST_CAFFEINATE=0): caffeinate is never called" "" "$(caff_log)"
+
+out=$(run_zsh "$CAFF_ENV; OSTYPE=darwin24.0; source '${PLUGIN}'; CLAUDE_CAST_CAFFEINATE=0; clbuild foo; CLAUDE_CAST_CAFFEINATE=1; clbuild foo")
+assert_eq "caffeinate: the knob is read at launch time, not load time" "$_caff_line" "$(caff_shape)"
+caff_ps >/dev/null
+
+CAFF_DRIFT="$(mktemp -d)"; write_agent_md "$CAFF_DRIFT" builder "$DRIFT_MODEL" "$BUILDER_EFFORT"
+out=$(run_zsh "export CAFF_LOG='$CAFF_LOG' CLAUDE_CAST_AGENTS_DIR='$CAFF_DRIFT'; OSTYPE=darwin24.0; CLAUDE_CAST_LAUNCH_CHECK=ask; source '${PLUGIN}'; clbuild foo; print rc=\$?")
+assert_contains "caffeinate: the launch guard still refuses first (rc 3)" "rc=3" "$out"
+assert_eq "caffeinate: a refused launch never reaches caffeinate" "" "$(caff_log)"
+
+out=$(run_zsh "OSTYPE=darwin24.0; source '${PLUGIN}'; claude-cast which clbuild")
+assert_eq "caffeinate: which still shows the plain claude command line" "$(expected_which "${SHIPPED[max20:build]}")" "$out"
+rm -rf "$CAFF_LOG" "$CAFF_PIDS" "$CAFF_PS" "$NOCAFF_BIN" "$CAFF_BIN" "$CAFF_DRIFT"
 
 # ---------------------------------------------------------------------------
 # 33. interactive launch-guard branch (pty). The launchers' `ask` prompt only
