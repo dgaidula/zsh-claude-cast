@@ -89,7 +89,7 @@ typeset -gA _CLAUDE_CAST_AGENTS_FROM_DEFAULT # agent -> 1 when filled from the s
 # --effort flag at all — required for Haiku 4.5 and older, which error on --effort
 # (Haiku 5.5 is the first Haiku that takes it).
 
-# casting:begin (generated from claude-ops casting.json @ b0a5cca 2026-10-13 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ 7cbd8b4b 2026-10-30 — do not edit by hand)
 # Claude Max 20x — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
@@ -105,6 +105,7 @@ verify	claude-fable-5-1[1m]|xhigh|--append-system-prompt-file ~/.claude/skills/s
 taste	claude-opus-5-5[1m]|high
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 review	claude-opus-5-5[1m]|medium|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
+collaborate	claude-fable-5-1[1m]|high
 sonnet	claude-sonnet-5-5[1m]|high
 EOF
 }
@@ -124,6 +125,7 @@ verify	claude-fable-5-1[1m]|high|--append-system-prompt-file ~/.claude/skills/so
 taste	claude-opus-5-5[1m]|high
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 review	claude-opus-5-5[1m]|medium|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
+collaborate	claude-fable-5-1[1m]|high
 sonnet	claude-sonnet-5-5[1m]|high
 EOF
 }
@@ -158,6 +160,7 @@ verifier	verify
 analyst	review
 uibuilder	uibuild
 dgbuilder	dgbuild
+collaborator	collaborate
 EOF
 }
 # casting:end
