@@ -89,8 +89,8 @@ typeset -gA _CLAUDE_CAST_AGENTS_FROM_DEFAULT # agent -> 1 when filled from the s
 # --effort flag at all — required for Haiku 4.5 and older, which error on --effort
 # (Haiku 5.5 is the first Haiku that takes it).
 
-# casting:begin (generated from claude-ops casting.json @ 7cbd8b4b 2026-10-30 — do not edit by hand)
-# Claude Max 20x — today's default table.
+# casting:begin (generated from claude-ops casting.json @ 3f89330c 2026-10-30 — do not edit by hand)
+# Claude Ultra (formerly Max 20x; the preset key stays max20, which the projector, cast.zsh and CAST_PRESET read) — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
 driver	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
