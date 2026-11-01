@@ -89,20 +89,20 @@ typeset -gA _CLAUDE_CAST_AGENTS_FROM_DEFAULT # agent -> 1 when filled from the s
 # --effort flag at all — required for Haiku 4.5 and older, which error on --effort
 # (Haiku 5.5 is the first Haiku that takes it).
 
-# casting:begin (generated from claude-ops casting.json @ 3f89330c 2026-10-30 — do not edit by hand)
+# casting:begin (generated from claude-ops casting.json @ a8416191 2026-11-01 — do not edit by hand)
 # Claude Ultra (formerly Max 20x; the preset key stays max20, which the projector, cast.zsh and CAST_PRESET read) — today's default table.
 _claude_cast_default_table_max20() {
   cat <<'EOF'
 driver	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-sonnet-5-5[1m]|high
-uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
-dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+uibuild	claude-sonnet-5-5[1m]|high|--append-system-prompt-file ~/.claude/cast/uibuild.md
+dgbuild	claude-sonnet-5-5[1m]|high|--append-system-prompt-file ~/.claude/cast/dgbuild.md
 fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|high
 chore	claude-sonnet-5-5[1m]|low
 fanout	claude-haiku-5-5|low
 verify	claude-fable-5-1[1m]|xhigh|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
-taste	claude-opus-5-5[1m]|high
+taste	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/cast/taste.md
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 review	claude-opus-5-5[1m]|medium|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
 collaborate	claude-fable-5-1[1m]|high
@@ -115,14 +115,14 @@ _claude_cast_default_table_max5() {
   cat <<'EOF'
 driver	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-sonnet-5-5[1m]|high
-uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
-dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+uibuild	claude-sonnet-5-5[1m]|high|--append-system-prompt-file ~/.claude/cast/uibuild.md
+dgbuild	claude-sonnet-5-5[1m]|high|--append-system-prompt-file ~/.claude/cast/dgbuild.md
 fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|high
 chore	claude-haiku-4-5|
 fanout	claude-haiku-5-5|low
 verify	claude-fable-5-1[1m]|high|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
-taste	claude-opus-5-5[1m]|high
+taste	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/cast/taste.md
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 review	claude-opus-5-5[1m]|medium|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
 collaborate	claude-fable-5-1[1m]|high
@@ -135,14 +135,14 @@ _claude_cast_default_table_pro() {
   cat <<'EOF'
 driver	claude-sonnet-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 build	claude-sonnet-5-5[1m]|high
-uibuild	claude-sonnet-5-5[1m]|high|--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md
-dgbuild	claude-sonnet-5-5[1m]|high|--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
+uibuild	claude-sonnet-5-5[1m]|high|--append-system-prompt-file ~/.claude/cast/uibuild.md
+dgbuild	claude-sonnet-5-5[1m]|high|--append-system-prompt-file ~/.claude/cast/dgbuild.md
 fix	claude-opus-5-5[1m]|high
 gate	claude-opus-5-5[1m]|high
 chore	claude-haiku-4-5|
 fanout	claude-haiku-5-5|low
 verify	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md
-taste	claude-opus-5-5[1m]|high
+taste	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/cast/taste.md
 orchestrate	claude-opus-5-5[1m]|high|--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md
 sonnet	claude-sonnet-5-5[1m]|high
 EOF

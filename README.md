@@ -80,14 +80,14 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 |---|---|---|---|
 | `driver` | `claude-opus-5-5[1m]` | `high` | `--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `build` | `claude-sonnet-5-5[1m]` | `high` | — |
-| `uibuild` | `claude-sonnet-5-5[1m]` | `high` | `--agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` |
-| `dgbuild` | `claude-sonnet-5-5[1m]` | `high` | `--agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
+| `uibuild` | `claude-sonnet-5-5[1m]` | `high` | `--append-system-prompt-file ~/.claude/cast/uibuild.md` |
+| `dgbuild` | `claude-sonnet-5-5[1m]` | `high` | `--append-system-prompt-file ~/.claude/cast/dgbuild.md` |
 | `fix` | `claude-opus-5-5[1m]` | `high` | — |
 | `gate` | `claude-opus-5-5[1m]` | `high` | — |
 | `chore` | `claude-sonnet-5-5[1m]` | `low` | — |
 | `fanout` | `claude-haiku-5-5` | `low` | — |
 | `verify` | `claude-fable-5-1[1m]` | `xhigh` | `--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` |
-| `taste` | `claude-opus-5-5[1m]` | `high` | — |
+| `taste` | `claude-opus-5-5[1m]` | `high` | `--append-system-prompt-file ~/.claude/cast/taste.md` |
 | `orchestrate` | `claude-opus-5-5[1m]` | `high` | `--append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `review` | `claude-opus-5-5[1m]` | `medium` | `--append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` |
 | `collaborate` | `claude-fable-5-1[1m]` | `high` | — |
@@ -97,20 +97,20 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 |---|---|---|---|
 | `driver` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-sonnet-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `build` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` |
-| `uibuild` | `claude-sonnet-5-5[1m]` `high` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` | `claude-sonnet-5-5[1m]` `high` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` | `claude-sonnet-5-5[1m]` `high` `+ --agent uibuilder --append-system-prompt-file ~/.claude/skills/gaidula-taste/SKILL.md` |
-| `dgbuild` | `claude-sonnet-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-sonnet-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-sonnet-5-5[1m]` `high` `+ --agent dgbuilder --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
+| `uibuild` | `claude-sonnet-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/uibuild.md` | `claude-sonnet-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/uibuild.md` | `claude-sonnet-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/uibuild.md` |
+| `dgbuild` | `claude-sonnet-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/dgbuild.md` | `claude-sonnet-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/dgbuild.md` | `claude-sonnet-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/dgbuild.md` |
 | `fix` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` |
 | `gate` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` |
 | `chore` | `claude-sonnet-5-5[1m]` `low` | `claude-haiku-4-5` | `claude-haiku-4-5` |
 | `fanout` | `claude-haiku-5-5` `low` | `claude-haiku-5-5` `low` | `claude-haiku-5-5` `low` |
 | `verify` | `claude-fable-5-1[1m]` `xhigh` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | `claude-fable-5-1[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` |
-| `taste` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` |
+| `taste` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/taste.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/taste.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/taste.md` |
 | `orchestrate` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` | `claude-opus-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/skills/fable-mode/SKILL.md` |
 | `review` | `claude-opus-5-5[1m]` `medium` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | `claude-opus-5-5[1m]` `medium` `+ --append-system-prompt-file ~/.claude/skills/source-first/SKILL.md` | — |
 | `collaborate` | `claude-fable-5-1[1m]` `high` | `claude-fable-5-1[1m]` `high` | — |
 | `sonnet` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` |
 
-Generated from the author’s scorecard casting source, commit `3f89330c`, as of `2026-10-30`.
+Generated from the author’s scorecard casting source, commit `a8416191`, as of `2026-11-01`.
 <!-- casting:end -->
 
 **This default is a snapshot, not a source of truth.** It reflects the
@@ -207,16 +207,19 @@ CLAUDE_CAST[rigor]='claude-opus-4-8[1m]|high|--append-system-prompt-file ~/my-sk
 CLAUDE_CAST[orchestrate]='claude-opus-4-8[1m]|high'   # no extra field: bare Opus
 ```
 
-**Specialist build rows.** `uibuild` and `dgbuild` use `extra` to launch
-as one of the maintainer’s custom agents: `--agent uibuilder` (or
-`dgbuilder`) loads that agent definition’s instructions, and one appended
-skill file rides along. Two CLI behaviors shaped that, both checked on
-Claude Code 2.1.281: a top-level `--agent` session loads the agent’s body
-but not the `skills:` list in its frontmatter (that preload applies to
-subagents only), and a repeated `--append-system-prompt-file` keeps only
-the last file. The row’s `--model` still wins over the agent’s own
-`model:` line. Without those agent files on your machine, blank the
-`extra` or drop the rows.
+**Specialist rows.** `taste`, `uibuild` and `dgbuild` each append one
+combined file from `~/.claude/cast/` (the maintainer builds them with
+chezmoi templates): the skills that row needs and, for the two build rows,
+the matching custom agent’s instructions with its frontmatter stripped.
+Three CLI behaviors shaped that, read from recorded system prompts on
+Claude Code 2.1.309 to 2.1.316: a repeated `--append-system-prompt-file`
+keeps only the last file; a top-level `--agent` session loads the agent’s
+body but not the `skills:` list in its frontmatter (that preload applies
+to subagents only); and a top-level `--agent` replaces Claude Code’s
+default system prompt, keeping only its one-line identity. Before
+2026-11-01 these rows passed `--agent uibuilder` (or `dgbuilder`) plus one
+skill file. Without those files on your machine, blank the `extra` or drop
+the rows.
 
 A leading `~` in any extra-flag word expands to `$HOME` at launch time.
 The row itself is a plain string (a heredoc line, or a value you typed into
