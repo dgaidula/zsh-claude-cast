@@ -82,7 +82,8 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `build` | `claude-sonnet-5-5[1m]` | `high` | — |
 | `uibuild` | `claude-sonnet-5-5[1m]` | `high` | `--append-system-prompt-file ~/.claude/cast/uibuild.md` |
 | `dgbuild` | `claude-sonnet-5-5[1m]` | `high` | `--append-system-prompt-file ~/.claude/cast/dgbuild.md` |
-| `fix` | `claude-opus-5-5[1m]` | `high` | — |
+| `fix` | `claude-sonnet-5-5[1m]` | `high` | — |
+| `fix-escalate` | `claude-opus-5-5[1m]` | `high` | — |
 | `gate` | `claude-opus-5-5[1m]` | `high` | — |
 | `chore` | `claude-sonnet-5-5[1m]` | `low` | — |
 | `fanout` | `claude-haiku-5-5` | `low` | — |
@@ -99,7 +100,8 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `build` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` |
 | `uibuild` | `claude-sonnet-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/uibuild.md` | `claude-sonnet-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/uibuild.md` | `claude-sonnet-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/uibuild.md` |
 | `dgbuild` | `claude-sonnet-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/dgbuild.md` | `claude-sonnet-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/dgbuild.md` | `claude-sonnet-5-5[1m]` `high` `+ --append-system-prompt-file ~/.claude/cast/dgbuild.md` |
-| `fix` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` |
+| `fix` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` |
+| `fix-escalate` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` |
 | `gate` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` | `claude-opus-5-5[1m]` `high` |
 | `chore` | `claude-sonnet-5-5[1m]` `low` | `claude-haiku-4-5` | `claude-haiku-4-5` |
 | `fanout` | `claude-haiku-5-5` `low` | `claude-haiku-5-5` `low` | `claude-haiku-5-5` `low` |
@@ -110,7 +112,7 @@ Shipped as-is, in `CLAUDE_CAST`, with full model IDs only — see
 | `collaborate` | `claude-fable-5-1[1m]` `high` | `claude-fable-5-1[1m]` `high` | — |
 | `sonnet` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` | `claude-sonnet-5-5[1m]` `high` |
 
-Generated from the author’s scorecard casting source, commit `a8416191`, as of `2026-11-01`.
+Generated from the author’s scorecard casting source, commit `b46cd105+uncommitted`, as of `2026-11-08`.
 <!-- casting:end -->
 
 **This default is a snapshot, not a source of truth.** It reflects the
